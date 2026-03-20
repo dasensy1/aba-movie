@@ -1,0 +1,77 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dart/Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# Android
+android/.gradle/
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/**/GeneratedPluginRegistrant.java
+android/**/GeneratedPluginRegistrant.kt
+android/app/google-services.json  # Не коммитить Firebase конфиг
+
+# iOS
+**/DerivedData/
+**/Pods/
+**/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+ios/Flutter/flutter_export_environment.sh
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.*
+ios/Runner/GoogleService-Info.plist  # Не коммитить Firebase конфиг
+
+# macOS
+**/MacOS/Flutter/ephemeral
+**/MacOS/Flutter/GeneratedPluginRegistrant.swift
+**/MacOS/Flutter/GeneratedPluginRegistrant.h
+
+# Windows
+windows/flutter/ephemeral/
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/runner/generated_plugin_registrant.cc
+windows/runner/generated_plugin_registrant.h
+
+# VS Code
+.vscode/
+
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Xcode
+**/xcuserdata/
+**/xcshareddata/
+
+# Environment
+.env
+.env.*
+
+# Secrets
+**/config_secrets.dart
+**/firebase_options.dart
+
+# Test
+coverage/
+.test_coverage.dart
+
+# Misc
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
