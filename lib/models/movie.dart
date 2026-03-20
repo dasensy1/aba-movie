@@ -85,17 +85,25 @@ class Movie {
       }
     }
 
-    // Получаем постер URL
+    // Получаем постер URL - ВАЖНО: проверяем на "N/A"
     String? posterUrl = null;
-    if (json['Poster'] != null && json['Poster'] != 'N/A') {
-      posterUrl = json['Poster'];
+    if (json['Poster'] != null && 
+        json['Poster'] != 'N/A' && 
+        json['Poster'].toString().trim().isNotEmpty) {
+      posterUrl = json['Poster'].toString().trim();
+    }
+
+    // Длительность
+    int? runtime;
+    if (json['Runtime'] != null && json['Runtime'] != 'N/A') {
+      runtime = int.tryParse(json['Runtime'].toString().replaceAll(' min', ''));
     }
 
     return Movie(
       id: json['imdbID'] != null ? json['imdbID'].toString().hashCode : 0,
       title: json['Title'] ?? 'Без названия',
       overview: json['Plot'],
-      posterPath: posterUrl,
+      posterPath: posterUrl,  // Сохраняем URL как posterPath
       backdropPath: null,
       voteAverage: voteAverage,
       voteCount: voteCount,
@@ -103,9 +111,7 @@ class Movie {
       genreIds: [],
       popularity: 0.0,
       tagline: null,
-      runtime: json['Runtime'] != null 
-          ? int.tryParse(json['Runtime'].toString().replaceAll(' min', ''))
-          : null,
+      runtime: runtime,
       status: json['Response'] == 'True' ? 'Вышел' : null,
       originalLanguage: null,
     );

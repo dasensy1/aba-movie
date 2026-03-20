@@ -58,6 +58,8 @@ class MovieCard extends StatelessWidget {
                         ? CachedNetworkImage(
                             imageUrl: movie.posterUrl,
                             fit: BoxFit.cover,
+                            memCacheWidth: 300,
+                            memCacheHeight: 450,
                             placeholder: (context, url) => Container(
                               color: const Color(0xFF333333),
                               child: Center(
@@ -69,7 +71,10 @@ class MovieCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            errorWidget: (context, url, error) => _buildGradientPlaceholder(),
+                            errorWidget: (context, url, error) {
+                              debugPrint('Image error for $url: $error');
+                              return _buildGradientPlaceholder();
+                            },
                           )
                         : _buildGradientPlaceholder(),
                   ),
@@ -250,6 +255,8 @@ class MovieCardVertical extends StatelessWidget {
                         ? CachedNetworkImage(
                             imageUrl: movie.posterUrl,
                             fit: BoxFit.cover,
+                            memCacheWidth: 300,
+                            memCacheHeight: 450,
                             placeholder: (context, url) => Container(
                               color: const Color(0xFF333333),
                               child: Center(
@@ -261,7 +268,10 @@ class MovieCardVertical extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            errorWidget: (context, url, error) => _buildGradientPlaceholder(),
+                            errorWidget: (context, url, error) {
+                              debugPrint('Image error for $url: $error');
+                              return _buildGradientPlaceholder();
+                            },
                           )
                         : _buildGradientPlaceholder(),
                   ),
