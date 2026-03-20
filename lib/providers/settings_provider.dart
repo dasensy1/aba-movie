@@ -49,6 +49,11 @@ class SettingsProvider with ChangeNotifier {
     _language = languageCode;
     await _prefsService.setLanguage(languageCode);
     notifyListeners();
+    
+    // Принудительно обновить UI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   /// Получить локализованное название языка

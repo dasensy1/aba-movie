@@ -319,6 +319,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // Биография фильма
+                  _buildBioSection(movie),
+                  const SizedBox(height: 24),
                   // Информация
                   const Text(
                     'Информация',
@@ -375,6 +378,135 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         ),
       ],
     );
+  }
+
+  /// Секция биографии фильма
+  Widget _buildBioSection(Movie movie) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Биография',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Слоган
+        if (movie.tagline != null && movie.tagline!.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF7C4DFF).withOpacity(0.2),
+                  const Color(0xFF00E5FF).withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF7C4DFF).withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.format_quote, color: Color(0xFF7C4DFF), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Слоган',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  movie.tagline!,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        // Характеристики
+        Row(
+          children: [
+            _buildBioChip(
+              icon: Icons.access_time,
+              label: movie.runtime != null ? '${movie.runtime} мин' : 'N/A',
+            ),
+            const SizedBox(width: 8),
+            _buildBioChip(
+              icon: Icons.calendar_today,
+              label: movie.releaseYear.isNotEmpty ? movie.releaseYear : 'N/A',
+            ),
+            const SizedBox(width: 8),
+            _buildBioChip(
+              icon: Icons.language,
+              label: _getLanguageName(movie.originalLanguage),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBioChip({required IconData icon, required String label}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF333333)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: const Color(0xFF7C4DFF), size: 20),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getLanguageName(String? code) {
+    if (code == null) return 'N/A';
+    switch (code) {
+      case 'en':
+        return 'Английский';
+      case 'ru':
+        return 'Русский';
+      case 'fr':
+        return 'Французский';
+      case 'de':
+        return 'Немецкий';
+      case 'es':
+        return 'Испанский';
+      case 'ja':
+        return 'Японский';
+      default:
+        return code.toUpperCase();
+    }
   }
 
   Color _getRatingColor(double rating) {

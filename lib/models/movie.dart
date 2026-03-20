@@ -10,6 +10,10 @@ class Movie {
   final String? releaseDate;
   final List<int> genreIds;
   final double? popularity;
+  final String? tagline;
+  final int? runtime;
+  final String? status;
+  final String? originalLanguage;
 
   Movie({
     required this.id,
@@ -22,6 +26,10 @@ class Movie {
     this.releaseDate,
     required this.genreIds,
     this.popularity,
+    this.tagline,
+    this.runtime,
+    this.status,
+    this.originalLanguage,
   });
 
   factory Movie.fromJson(Map<String, dynamic> json) {

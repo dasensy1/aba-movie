@@ -25,17 +25,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
+  /// Загрузка данных
   Future<void> _loadData() async {
     final moviesProvider = context.read<MoviesProvider>();
-    if (moviesProvider.trendingMovies.isEmpty) {
-      moviesProvider.loadTrendingMovies();
-    }
-    if (moviesProvider.popularMovies.isEmpty) {
-      moviesProvider.loadPopularMovies();
-    }
-    if (moviesProvider.topRatedMovies.isEmpty) {
-      moviesProvider.loadTopRatedMovies();
-    }
+    // Всегда загружаем заново при обновлении
+    await moviesProvider.loadTrendingMovies();
+    await moviesProvider.loadPopularMovies();
+    await moviesProvider.loadTopRatedMovies();
+  }
+
+  /// Обновление для pull-to-refresh
+  Future<void> _onRefresh() async {
+    await _loadData();
   }
 
   @override
@@ -67,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           return RefreshIndicator(
-            onRefresh: () async => _loadData(),
+            onRefresh: _onRefresh,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(

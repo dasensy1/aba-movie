@@ -233,10 +233,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         // Сетка фильмов
         Expanded(
           child: GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.all(8),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.55,
+              crossAxisCount: 3,
+              childAspectRatio: 0.65,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
             ),
