@@ -98,12 +98,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 2.5,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        crossAxisCount: 3,
+        childAspectRatio: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
       itemCount: moviesProvider.genres.length,
       itemBuilder: (context, index) {
@@ -127,7 +127,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               const Color(0xFF00E5FF).withOpacity(0.1),
             ],
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: const Color(0xFF7C4DFF).withOpacity(0.3),
             width: 1,
@@ -137,7 +137,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           child: Text(
             genre.name,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
