@@ -3,13 +3,14 @@ import '../models/models.dart';
 import '../services/services.dart';
 
 /// ============================================================================
-/// MOVIES PROVIDER (ЛОКАЛЬНЫЕ ДАННЫЕ)
+/// MOVIES PROVIDER (OMDb API + DEMO)
 /// ============================================================================
 /// Провайдер для управления состоянием фильмов
-/// Работает с демо-данными без внешнего API
+/// Работает с OMDb API и демо-данными
 /// ============================================================================
 
 class MoviesProvider with ChangeNotifier {
+  final OmdbApiService _apiService = OmdbApiService();
   final DemoDataService _demoService = DemoDataService();
   final LocalDatabaseService _dbService = LocalDatabaseService();
 
@@ -47,9 +48,8 @@ class MoviesProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 500)); // Имитация задержки
-
     try {
+      // Используем демо-данные как тренды
       _trendingMovies = _demoService.getTrendingMovies();
       _isLoading = false;
       notifyListeners();
@@ -61,7 +61,7 @@ class MoviesProvider with ChangeNotifier {
   }
 
   /// ============================================================================
-  /// ПОИСК
+  /// ПОИСК (OMDb API)
   /// ============================================================================
   Future<void> searchMovies(String query) async {
     if (query.trim().isEmpty) {
@@ -76,10 +76,8 @@ class MoviesProvider with ChangeNotifier {
     _searchQuery = query;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 300)); // Имитация задержки
-
     try {
-      _searchResults = _demoService.searchMovies(query);
+      _searchResults = await _apiService.searchMovies(query);
       _isLoading = false;
       notifyListeners();
     } catch (e) {

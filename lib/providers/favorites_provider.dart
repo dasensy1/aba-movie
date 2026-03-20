@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
-import '../services/services.dart';
+import '../services/local_database_service.dart';
 
 /// ============================================================================
 /// FAVORITES PROVIDER
@@ -12,6 +12,7 @@ class FavoritesProvider with ChangeNotifier {
   final LocalDatabaseService _dbService = LocalDatabaseService();
 
   List<Movie> _favorites = [];
+  Set<int> _favoriteIds = {}; // Для быстрой проверки
   bool _isLoading = false;
   String? _error;
 
@@ -27,6 +28,7 @@ class FavoritesProvider with ChangeNotifier {
 
     try {
       _favorites = await _dbService.getFavorites();
+      _favoriteIds = _favorites.map((m) => m.id).toSet();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -36,22 +38,30 @@ class FavoritesProvider with ChangeNotifier {
     }
   }
 
-  /// Добавить в избранное
+  /// Проверить, есть ли в избранном (синхронно)
+  bool isFavoriteNow(int movieId) {
+    return _favoriteIds.contains(movieId);
+  }
+
+  /// Добавить/удалить из избранного
   Future<bool> toggleFavorite(Movie movie) async {
     try {
-      final isCurrentlyFavorite = await _dbService.isFavorite(movie.id);
+      final isCurrentlyFavorite = _favoriteIds.contains(movie.id);
 
       if (isCurrentlyFavorite) {
+        // Удаляем
         await _dbService.removeFromFavorites(movie.id);
         _favorites.removeWhere((m) => m.id == movie.id);
-        notifyListeners();
-        return false;
+        _favoriteIds.remove(movie.id);
       } else {
+        // Добавляем
         await _dbService.addToFavorites(movie);
         _favorites.insert(0, movie);
-        notifyListeners();
-        return true;
+        _favoriteIds.add(movie.id);
       }
+
+      notifyListeners();
+      return !isCurrentlyFavorite;
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
@@ -59,9 +69,23 @@ class FavoritesProvider with ChangeNotifier {
     }
   }
 
-  /// Проверить, есть ли в избранном
-  Future<bool> isFavorite(int movieId) async {
-    return await _dbService.isFavorite(movieId);
+  /// Добавить в избранное
+  Future<bool> addToFavorites(Movie movie) async {
+    try {
+      if (_favoriteIds.contains(movie.id)) {
+        return false; // Уже в избранном
+      }
+
+      await _dbService.addToFavorites(movie);
+      _favorites.insert(0, movie);
+      _favoriteIds.add(movie.id);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Удалить из избранного
@@ -70,6 +94,7 @@ class FavoritesProvider with ChangeNotifier {
       final removed = await _dbService.removeFromFavorites(movieId);
       if (removed) {
         _favorites.removeWhere((m) => m.id == movieId);
+        _favoriteIds.remove(movieId);
         notifyListeners();
       }
       return removed;
@@ -85,6 +110,7 @@ class FavoritesProvider with ChangeNotifier {
     try {
       await _dbService.clearAll();
       _favorites = [];
+      _favoriteIds = {};
       notifyListeners();
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');

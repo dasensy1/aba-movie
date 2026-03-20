@@ -30,29 +30,26 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     _checkIfFavorite();
   }
 
-  Future<void> _checkIfFavorite() async {
+  void _checkIfFavorite() {
     final provider = context.read<FavoritesProvider>();
-    final isFav = await provider.isFavorite(widget.movie.id);
-    if (mounted) {
-      setState(() {
-        _isFavorite = isFav;
-      });
-    }
+    setState(() {
+      _isFavorite = provider.isFavoriteNow(widget.movie.id);
+    });
   }
 
   Future<void> _toggleFavorite() async {
     final provider = context.read<FavoritesProvider>();
-    final result = await provider.toggleFavorite(widget.movie);
+    final added = await provider.toggleFavorite(widget.movie);
 
     if (mounted) {
       setState(() {
-        _isFavorite = result;
+        _isFavorite = added;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result ? 'Добавлено в избранное' : 'Удалено из избранного',
+            added ? 'Добавлено в избранное' : 'Удалено из избранного',
           ),
           behavior: SnackBarBehavior.floating,
         ),

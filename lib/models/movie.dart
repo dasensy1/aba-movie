@@ -42,17 +42,83 @@ class Movie {
       voteAverage: (json['vote_average'] ?? 0).toDouble(),
       voteCount: json['vote_count'] ?? 0,
       releaseDate: json['release_date'] ?? json['first_air_date'],
-      genreIds: json['genre_ids'] != null 
-          ? List<int>.from(json['genre_ids']) 
+      genreIds: json['genre_ids'] != null
+          ? List<int>.from(json['genre_ids'])
           : [],
       popularity: (json['popularity'] ?? 0).toDouble(),
+    );
+  }
+
+  /// Создание из OMDb API
+  factory Movie.fromOmdb(Map<String, dynamic> json) {
+    // Извлекаем год из Released (формат: "DD Mon YYYY")
+    String? releaseDate;
+    if (json['Released'] != null && json['Released'] != 'N/A') {
+      try {
+        final parts = json['Released'].toString().split(' ');
+        if (parts.length >= 3) {
+          releaseDate = '${parts[2]}-01-01';
+        }
+      } catch (e) {
+        releaseDate = null;
+      }
+    }
+
+    // Парсим рейтинг (формат: "8.8/10")
+    double voteAverage = 0.0;
+    if (json['imdbRating'] != null && json['imdbRating'] != 'N/A') {
+      try {
+        voteAverage = double.parse(json['imdbRating'].toString().split('/').first);
+      } catch (e) {
+        voteAverage = 0.0;
+      }
+    }
+
+    // Парсим количество голосов
+    int voteCount = 0;
+    if (json['imdbVotes'] != null && json['imdbVotes'] != 'N/A') {
+      try {
+        final votes = json['imdbVotes'].toString().replaceAll(',', '');
+        voteCount = int.tryParse(votes) ?? 0;
+      } catch (e) {
+        voteCount = 0;
+      }
+    }
+
+    // Получаем постер URL
+    String? posterUrl = null;
+    if (json['Poster'] != null && json['Poster'] != 'N/A') {
+      posterUrl = json['Poster'];
+    }
+
+    return Movie(
+      id: json['imdbID'] != null ? json['imdbID'].toString().hashCode : 0,
+      title: json['Title'] ?? 'Без названия',
+      overview: json['Plot'],
+      posterPath: posterUrl,
+      backdropPath: null,
+      voteAverage: voteAverage,
+      voteCount: voteCount,
+      releaseDate: releaseDate,
+      genreIds: [],
+      popularity: 0.0,
+      tagline: null,
+      runtime: json['Runtime'] != null 
+          ? int.tryParse(json['Runtime'].toString().replaceAll(' min', ''))
+          : null,
+      status: json['Response'] == 'True' ? 'Вышел' : null,
+      originalLanguage: null,
     );
   }
 
   /// URL постера полного размера
   String get posterUrl {
     if (posterPath == null || posterPath!.isEmpty) return '';
-    // Используем прямые URL с TMDB
+    // Если это URL (начинается с http), возвращаем как есть
+    if (posterPath!.startsWith('http')) {
+      return posterPath!;
+    }
+    // Иначе это путь TMDB
     return 'https://image.tmdb.org/t/p/w500$posterPath';
   }
 
