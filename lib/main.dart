@@ -1,15 +1,6 @@
 // ============================================================================
 // MOVIE TRACKER - MAIN ENTRY POINT
 // ============================================================================
-// 
-// ПРИЛОЖЕНИЕ РАБОТАЕТ ЛОКАЛЬНО - БЕЗ ВНЕШНИХ API
-// 
-// Все данные хранятся локально на устройстве:
-// - Избранные фильмы - SQLite
-// - Настройки - SharedPreferences
-// - Демо-фильмы - встроенные заглушки
-// 
-// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,10 +14,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MovieTrackerApp());
 }
-
-/// ============================================================================
-/// MAIN APP WIDGET
-/// ============================================================================
 
 class MovieTrackerApp extends StatelessWidget {
   const MovieTrackerApp({Key? key}) : super(key: key);
@@ -43,9 +30,9 @@ class MovieTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => MoviesProvider(),
         ),
-        // Favorites Provider
+        // Favorites Provider (Теперь инициализируем загрузку из БД)
         ChangeNotifierProvider(
-          create: (_) => FavoritesProvider(),
+          create: (_) => FavoritesProvider()..loadFavorites(),
         ),
         // Settings Provider
         ChangeNotifierProvider(
@@ -68,10 +55,6 @@ class MovieTrackerApp extends StatelessWidget {
   }
 }
 
-/// ============================================================================
-/// APP STARTUP WIDGET
-/// ============================================================================
-
 class AppStartup extends StatelessWidget {
   const AppStartup({Key? key}) : super(key: key);
 
@@ -79,26 +62,17 @@ class AppStartup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        // Пока загружается - показываем сплэш
         if (auth.isLoading) {
           return const SplashScreen();
         }
-
-        // Если авторизован - главный экран
         if (auth.isSignedIn) {
           return const MainScreen();
         }
-
-        // Иначе - экран входа
         return const LoginScreen();
       },
     );
   }
 }
-
-/// ============================================================================
-/// SPLASH SCREEN
-/// ============================================================================
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -147,9 +121,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _navigateToNextScreen() async {
     if (!mounted) return;
-
     final authProvider = context.read<AuthProvider>();
-
     if (authProvider.isSignedIn) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainScreen()),
@@ -179,83 +151,24 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         child: Center(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return FadeTransition(
-                opacity: _fadeAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFF7C4DFF).withOpacity(0.3),
-                              const Color(0xFF00E5FF).withOpacity(0.1),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF7C4DFF).withOpacity(0.3),
-                              blurRadius: 30,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.movie_filter,
-                          size: 100,
-                          color: Color(0xFF7C4DFF),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      const Text(
-                        'Movie Tracker',
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF7C4DFF),
-                          letterSpacing: 3,
-                          shadows: [
-                            Shadow(
-                              color: Color(0xFF7C4DFF),
-                              blurRadius: 20,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Ваш персональный киногид',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[400],
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 60),
-                      SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            const Color(0xFF7C4DFF),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.movie_filter,
+                size: 100,
+                color: Color(0xFF7C4DFF),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Movie Tracker',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF7C4DFF),
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
       ),

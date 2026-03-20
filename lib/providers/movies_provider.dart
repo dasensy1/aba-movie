@@ -41,7 +41,7 @@ class MoviesProvider with ChangeNotifier {
   int get selectedGenreId => _selectedGenreId;
 
   /// ============================================================================
-  /// TRENDING FILMS
+  /// TRENDING FILMS (Now from OMDb API)
   /// ============================================================================
   Future<void> loadTrendingMovies() async {
     _isLoading = true;
@@ -49,12 +49,12 @@ class MoviesProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Используем демо-данные как тренды
-      _trendingMovies = _demoService.getTrendingMovies();
+      // Загружаем реальные данные из OMDb вместо демо
+      _trendingMovies = await _apiService.getPopularMovies();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = 'Ошибка загрузки: $e';
+      _error = 'Ошибка загрузки трендов: $e';
       _isLoading = false;
       notifyListeners();
     }
@@ -95,42 +95,40 @@ class MoviesProvider with ChangeNotifier {
   }
 
   /// ============================================================================
-  /// POPULAR FILMS
+  /// POPULAR FILMS (Now from OMDb API)
   /// ============================================================================
   Future<void> loadPopularMovies() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 500));
-
     try {
-      _popularMovies = _demoService.getPopularMovies();
+      // Используем поисковый запрос для популярных новинок
+      _popularMovies = await _apiService.searchMovies('Marvel');
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = 'Ошибка загрузки: $e';
+      _error = 'Ошибка загрузки популярных: $e';
       _isLoading = false;
       notifyListeners();
     }
   }
 
   /// ============================================================================
-  /// TOP RATED FILMS
+  /// TOP RATED FILMS (Now from OMDb API)
   /// ============================================================================
   Future<void> loadTopRatedMovies() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 500));
-
     try {
-      _topRatedMovies = _demoService.getTopRatedMovies();
+      // Используем поисковый запрос для классики
+      _topRatedMovies = await _apiService.searchMovies('Star Wars');
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = 'Ошибка загрузки: $e';
+      _error = 'Ошибка загрузки лучших: $e';
       _isLoading = false;
       notifyListeners();
     }
@@ -143,8 +141,6 @@ class MoviesProvider with ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
-
-    await Future.delayed(const Duration(milliseconds: 300));
 
     try {
       _genres = _demoService.demoGenres;
@@ -164,10 +160,14 @@ class MoviesProvider with ChangeNotifier {
     _selectedGenreId = genreId;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 300));
-
     try {
-      _moviesByGenre = _demoService.getMoviesByGenre(genreId);
+      // Имитируем жанры через поиск по ключевым словам
+      String query = 'action';
+      if (genreId == 1) query = 'action';
+      if (genreId == 2) query = 'comedy';
+      if (genreId == 3) query = 'drama';
+      
+      _moviesByGenre = await _apiService.searchMovies(query);
       _isLoading = false;
       notifyListeners();
     } catch (e) {

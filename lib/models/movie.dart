@@ -1,6 +1,7 @@
 /// Модель фильма (локальные данные)
 class Movie {
   final int id;
+  final String? imdbId; // Добавили оригинальный ID для OMDb
   final String title;
   final String? overview;
   final String? posterPath;
@@ -17,6 +18,7 @@ class Movie {
 
   Movie({
     required this.id,
+    this.imdbId,
     required this.title,
     this.overview,
     this.posterPath,
@@ -51,7 +53,6 @@ class Movie {
 
   /// Создание из OMDb API
   factory Movie.fromOmdb(Map<String, dynamic> json) {
-    // Извлекаем год из Released (формат: "DD Mon YYYY")
     String? releaseDate;
     if (json['Released'] != null && json['Released'] != 'N/A') {
       try {
@@ -64,7 +65,6 @@ class Movie {
       }
     }
 
-    // Парсим рейтинг (формат: "8.8/10")
     double voteAverage = 0.0;
     if (json['imdbRating'] != null && json['imdbRating'] != 'N/A') {
       try {
@@ -74,7 +74,6 @@ class Movie {
       }
     }
 
-    // Парсим количество голосов
     int voteCount = 0;
     if (json['imdbVotes'] != null && json['imdbVotes'] != 'N/A') {
       try {
@@ -85,7 +84,6 @@ class Movie {
       }
     }
 
-    // Получаем постер URL - ВАЖНО: проверяем на "N/A"
     String? posterUrl = null;
     if (json['Poster'] != null && 
         json['Poster'] != 'N/A' && 
@@ -93,7 +91,6 @@ class Movie {
       posterUrl = json['Poster'].toString().trim();
     }
 
-    // Длительность
     int? runtime;
     if (json['Runtime'] != null && json['Runtime'] != 'N/A') {
       runtime = int.tryParse(json['Runtime'].toString().replaceAll(' min', ''));
@@ -101,9 +98,10 @@ class Movie {
 
     return Movie(
       id: json['imdbID'] != null ? json['imdbID'].toString().hashCode : 0,
+      imdbId: json['imdbID'], // Сохраняем строку ttXXXXX
       title: json['Title'] ?? 'Без названия',
-      overview: json['Plot'],
-      posterPath: posterUrl,  // Сохраняем URL как posterPath
+      overview: json['Plot'] == 'N/A' ? null : json['Plot'],
+      posterPath: posterUrl,
       backdropPath: null,
       voteAverage: voteAverage,
       voteCount: voteCount,
@@ -117,46 +115,33 @@ class Movie {
     );
   }
 
-  /// URL постера полного размера
   String get posterUrl {
     if (posterPath == null || posterPath!.isEmpty) return '';
-    // Если это URL (начинается с http), возвращаем как есть
-    if (posterPath!.startsWith('http')) {
-      return posterPath!;
-    }
-    // Иначе это путь TMDB
+    if (posterPath!.startsWith('http')) return posterPath!;
     return 'https://image.tmdb.org/t/p/w500$posterPath';
   }
 
-  /// URL бэкдропа (фона)
   String get backdropUrl {
     if (backdropPath == null || backdropPath!.isEmpty) return '';
     return 'https://image.tmdb.org/t/p/original$backdropPath';
   }
 
-  /// Цвет градиента для постера (на основе ID)
   List<int> get gradientColors {
     final colors = [
       [0xFF7C4DFF, 0xFF00E5FF],
       [0xFF00B8D4, 0xFF0091EA],
       [0xFFD500F9, 0xFFAA00FF],
       [0xFF651FFF, 0xFF311B92],
-      [0xFF00E676, 0xFF00C853],
-      [0xFFFF9100, 0xFFFF6D00],
-      [0xFFFF1744, 0xFFD50000],
-      [0xFFE040FB, 0xFF6200EA],
     ];
-    final index = id % colors.length;
+    final index = id.abs() % colors.length;
     return colors[index];
   }
 
-  /// Год релиза
   String get releaseYear {
     if (releaseDate == null || releaseDate!.isEmpty) return '';
     return releaseDate!.substring(0, 4);
   }
 
-  /// Карта для локального хранения
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -182,7 +167,7 @@ class Movie {
       voteAverage: (map['voteAverage'] ?? 0).toDouble(),
       voteCount: map['voteCount'] ?? 0,
       releaseDate: map['releaseDate'],
-      genreIds: map['genreIds'] != null 
+      genreIds: map['genreIds'] != null && map['genreIds'].toString().isNotEmpty
           ? (map['genreIds'] as String).split(',').map(int.parse).toList()
           : [],
       popularity: (map['popularity'] ?? 0).toDouble(),
