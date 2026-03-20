@@ -267,17 +267,19 @@ class AppThemes {
     return ThemeData(
       brightness: Brightness.light,
       primaryColor: const Color(0xFF7C4DFF),
-      scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+      scaffoldBackgroundColor: const Color(0xFFF0F0F0),
       cardColor: Colors.white,
 
       colorScheme: const ColorScheme.light(
         primary: Color(0xFF7C4DFF),
         secondary: Color(0xFF00B8D4),
         surface: Colors.white,
+        background: Color(0xFFF0F0F0),
         error: Color(0xFFB00020),
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onSurface: Colors.black,
+        onSurface: Colors.black87,
+        onBackground: Colors.black87,
         onError: Colors.white,
       ),
 
@@ -288,9 +290,9 @@ class AppThemes {
         titleTextStyle: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.bold,
-          color: Colors.black,
+          color: Colors.black87,
         ),
-        iconTheme: IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: Colors.black87),
       ),
 
       cardTheme: CardThemeData(
@@ -384,21 +386,35 @@ class AppThemes {
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.bold,
-          color: Colors.black,
+          color: Colors.black87,
+        ),
+        headlineMedium: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
         ),
         titleLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: Colors.black,
+          color: Colors.black87,
+        ),
+        titleMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 16,
+          color: Colors.black87,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
-          color: Colors.black54,
+          color: Colors.black87,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: Colors.white,
+          color: Colors.black87,
         ),
       ),
     );

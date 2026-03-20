@@ -52,6 +52,7 @@ class Movie {
   /// URL постера полного размера
   String get posterUrl {
     if (posterPath == null || posterPath!.isEmpty) return '';
+    // Используем прямые URL с TMDB
     return 'https://image.tmdb.org/t/p/w500$posterPath';
   }
 

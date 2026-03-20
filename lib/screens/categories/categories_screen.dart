@@ -243,14 +243,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             itemCount: moviesProvider.moviesByGenre.length,
             itemBuilder: (context, index) {
               final movie = moviesProvider.moviesByGenre[index];
-              return MovieCardVertical(
-                movie: movie,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MovieDetailScreen(movie: movie),
-                    ),
+              return Consumer<FavoritesProvider>(
+                builder: (context, favorites, _) {
+                  final isFav = favorites.favorites.any((m) => m.id == movie.id);
+                  return MovieCardVertical(
+                    movie: movie,
+                    isFavorite: isFav,
+                    onFavoriteTap: () => favorites.toggleFavorite(movie),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailScreen(movie: movie),
+                        ),
+                      );
+                    },
                   );
                 },
               );

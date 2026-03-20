@@ -313,14 +313,21 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: movies.length > 10 ? 10 : movies.length,
             itemBuilder: (context, index) {
               final movie = movies[index];
-              return MovieCard(
-                movie: movie,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MovieDetailScreen(movie: movie),
-                    ),
+              return Consumer<FavoritesProvider>(
+                builder: (context, favorites, _) {
+                  final isFav = favorites.favorites.any((m) => m.id == movie.id);
+                  return MovieCard(
+                    movie: movie,
+                    isFavorite: isFav,
+                    onFavoriteTap: () => favorites.toggleFavorite(movie),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailScreen(movie: movie),
+                        ),
+                      );
+                    },
                   );
                 },
               );
