@@ -34,6 +34,10 @@ class MovieTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => FavoritesProvider()..loadFavorites(),
         ),
+        // Watchlist Provider (треккинг фильмов)
+        ChangeNotifierProvider(
+          create: (_) => WatchlistProvider()..loadWatchlist(),
+        ),
         // Settings Provider
         ChangeNotifierProvider(
           create: (_) => SettingsProvider()..initialize(),

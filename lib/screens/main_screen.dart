@@ -6,6 +6,7 @@ import 'auth/login_screen.dart';
 import 'home/home_screen.dart';
 import 'search/search_screen.dart';
 import 'categories/categories_screen.dart';
+import 'watchlist/watchlist_screen.dart';
 import 'favorites/favorites_screen.dart';
 import 'profile/profile_screen.dart';
 import 'settings/settings_screen.dart';
@@ -32,6 +33,7 @@ class _MainScreenState extends State<MainScreen> {
     const HomeScreen(),
     const SearchScreen(),
     const CategoriesScreen(),
+    const WatchlistScreen(),
     const FavoritesScreen(),
     const ProfileScreen(),
     const SettingsScreen(),
@@ -49,6 +51,7 @@ class _MainScreenState extends State<MainScreen> {
     final moviesProvider = context.read<MoviesProvider>();
     final favoritesProvider = context.read<FavoritesProvider>();
     final settingsProvider = context.read<SettingsProvider>();
+    final watchlistProvider = context.read<WatchlistProvider>();
 
     // Инициализация настроек
     await settingsProvider.initialize();
@@ -59,6 +62,18 @@ class _MainScreenState extends State<MainScreen> {
 
     // Загрузка избранных
     favoritesProvider.loadFavorites();
+    
+    // Загрузка треккинга
+    watchlistProvider.loadWatchlist();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Обновляем треккинг при переключении на вкладку трекинга (индекс 3) или профиля (индекс 5)
+    if (_currentIndex == 3 || _currentIndex == 5) {
+      context.read<WatchlistProvider>().loadWatchlist();
+    }
   }
 
   @override
@@ -73,12 +88,13 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: const Color(0xFF1A1A1A),
         color: Colors.grey[500],
         activeColor: const Color(0xFF7C4DFF),
-        style: TabStyle.fixedCircle,
+        style: TabStyle.reactCircle,
         height: 60,
         items: const [
           TabItem(icon: Icons.home_outlined, title: 'Главная'),
           TabItem(icon: Icons.search, title: 'Поиск'),
           TabItem(icon: Icons.category_outlined, title: 'Категории'),
+          TabItem(icon: Icons.track_changes, title: 'Трекинг'),
           TabItem(icon: Icons.favorite_outlined, title: 'Избранное'),
           TabItem(icon: Icons.person_outline, title: 'Профиль'),
           TabItem(icon: Icons.settings_outlined, title: 'Настройки'),

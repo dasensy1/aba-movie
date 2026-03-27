@@ -78,6 +78,23 @@ class LocalDatabaseService {
         value TEXT NOT NULL
       )
     ''');
+
+    // Таблица треккинга фильмов (watchlist)
+    await db.execute('''
+      CREATE TABLE watchlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        movie_id INTEGER NOT NULL,
+        imdb_id TEXT,
+        title TEXT NOT NULL,
+        poster_path TEXT,
+        status TEXT NOT NULL,
+        user_rating REAL,
+        notes TEXT,
+        watched_date TEXT,
+        added_date TEXT NOT NULL,
+        UNIQUE(movie_id)
+      )
+    ''');
   }
 
   /// ============================================================================
@@ -264,6 +281,144 @@ class LocalDatabaseService {
       );
     } catch (e) {
       return {};
+    }
+  }
+
+  /// ============================================================================
+  /// WATCHLIST (ТРЕККИНГ ФИЛЬМОВ)
+  /// ============================================================================
+
+  /// Добавить фильм в watchlist
+  Future<int> addToWatchlist(WatchlistMovie movie) async {
+    try {
+      final db = await database;
+      return await db.insert(
+        'watchlist',
+        movie.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    } catch (e) {
+      throw Exception('Ошибка добавления в треккинг: $e');
+    }
+  }
+
+  /// Обновить статус фильма в watchlist
+  Future<void> updateWatchlistStatus(int movieId, WatchStatus status, DateTime? watchedDate) async {
+    try {
+      final db = await database;
+      await db.update(
+        'watchlist',
+        {
+          'status': status.name,
+          if (watchedDate != null) 'watched_date': watchedDate.toIso8601String(),
+        },
+        where: 'movie_id = ?',
+        whereArgs: [movieId],
+      );
+    } catch (e) {
+      throw Exception('Ошибка обновления статуса: $e');
+    }
+  }
+
+  /// Обновить оценку фильма в watchlist
+  Future<void> updateWatchlistRating(int movieId, double rating) async {
+    try {
+      final db = await database;
+      await db.update(
+        'watchlist',
+        {'user_rating': rating},
+        where: 'movie_id = ?',
+        whereArgs: [movieId],
+      );
+    } catch (e) {
+      throw Exception('Ошибка обновления оценки: $e');
+    }
+  }
+
+  /// Обновить заметки фильма в watchlist
+  Future<void> updateWatchlistNotes(int movieId, String notes) async {
+    try {
+      final db = await database;
+      await db.update(
+        'watchlist',
+        {'notes': notes},
+        where: 'movie_id = ?',
+        whereArgs: [movieId],
+      );
+    } catch (e) {
+      throw Exception('Ошибка обновления заметок: $e');
+    }
+  }
+
+  /// Удалить фильм из watchlist
+  Future<bool> removeFromWatchlist(int movieId) async {
+    try {
+      final db = await database;
+      final deleted = await db.delete(
+        'watchlist',
+        where: 'movie_id = ?',
+        whereArgs: [movieId],
+      );
+      return deleted > 0;
+    } catch (e) {
+      throw Exception('Ошибка удаления из треккинга: $e');
+    }
+  }
+
+  /// Проверить, есть ли фильм в watchlist
+  Future<bool> isInWatchlist(int movieId) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'watchlist',
+        where: 'movie_id = ?',
+        whereArgs: [movieId],
+      );
+      return result.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Получить весь watchlist
+  Future<List<WatchlistMovie>> getWatchlist() async {
+    try {
+      final db = await database;
+      final maps = await db.query('watchlist', orderBy: 'added_date DESC');
+      return maps.map((map) => WatchlistMovie.fromMap(map)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Получить фильмы по статусу
+  Future<List<WatchlistMovie>> getWatchlistByStatus(WatchStatus status) async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        'watchlist',
+        where: 'status = ?',
+        whereArgs: [status.name],
+        orderBy: 'added_date DESC',
+      );
+      return maps.map((map) => WatchlistMovie.fromMap(map)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Получить количество фильмов по статусу
+  Future<int> getWatchlistCountByStatus(WatchStatus status) async {
+    try {
+      final db = await database;
+      return Sqflite.firstIntValue(
+        await db.rawQuery(
+          'SELECT COUNT(*) FROM watchlist WHERE status = ?',
+          [status.name],
+        ),
+      ) ?? 0;
+    } catch (e) {
+      return 0;
     }
   }
 
