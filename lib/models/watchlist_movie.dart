@@ -1,7 +1,7 @@
 /// ============================================================================
 /// WATCHLIST MOVIE MODEL
 /// ============================================================================
-/// Модель для трекинга фильмов: статус, оценка, заметки, дата просмотра
+/// Модель для трекинга фильмов: статус, оценка, заметки, дата просмотра, счетчик
 /// ============================================================================
 
 import 'package:flutter/material.dart';
@@ -66,8 +66,9 @@ class WatchlistMovie {
   final WatchStatus status;
   final double? userRating;      // Оценка пользователя (0-10)
   final String? notes;           // Заметки пользователя
-  final DateTime? watchedDate;   // Дата просмотра
-  final DateTime addedDate;      // Дата добавления в треккинг
+  final DateTime? watchedDate;   // Дата последнего просмотра
+  final DateTime addedDate;      // Дата последнего изменения статуса
+  final int watchCount;          // Количество просмотров
 
   WatchlistMovie({
     required this.id,
@@ -80,6 +81,7 @@ class WatchlistMovie {
     this.notes,
     this.watchedDate,
     required this.addedDate,
+    this.watchCount = 1,
   });
 
   /// Создание из JSON
@@ -104,23 +106,8 @@ class WatchlistMovie {
       addedDate: json['added_date'] != null 
           ? DateTime.parse(json['added_date']) 
           : DateTime.now(),
+      watchCount: json['watch_count'] ?? 1,
     );
-  }
-
-  /// Преобразование в JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'movie_id': movieId,
-      'imdb_id': imdbId,
-      'title': title,
-      'poster_path': posterPath,
-      'status': status.name,
-      'user_rating': userRating,
-      'notes': notes,
-      'watched_date': watchedDate?.toIso8601String(),
-      'added_date': addedDate.toIso8601String(),
-    };
   }
 
   /// Преобразование в Map для SQLite
@@ -135,10 +122,9 @@ class WatchlistMovie {
       'notes': notes,
       'watched_date': watchedDate?.toIso8601String(),
       'added_date': addedDate.toIso8601String(),
+      'watch_count': watchCount,
     };
     
-    // Если id != 0, значит это существующая запись, включаем id.
-    // Если id == 0, не включаем его, чтобы сработал AUTOINCREMENT в SQLite.
     if (id != 0) {
       map['id'] = id;
     }
@@ -168,19 +154,21 @@ class WatchlistMovie {
       addedDate: map['added_date'] != null 
           ? DateTime.parse(map['added_date']) 
           : DateTime.now(),
+      watchCount: map['watch_count'] ?? 1,
     );
   }
 
   /// Создание из Movie модели
   factory WatchlistMovie.fromMovie(dynamic movie, {WatchStatus status = WatchStatus.wantToWatch}) {
     return WatchlistMovie(
-      id: 0, // Будет установлен БД (autoincrement)
+      id: 0,
       movieId: movie.id,
       imdbId: movie.imdbId,
       title: movie.title,
       posterPath: movie.posterPath,
       status: status,
       addedDate: DateTime.now(),
+      watchCount: status == WatchStatus.watched ? 1 : 0,
     );
   }
 
@@ -196,6 +184,7 @@ class WatchlistMovie {
     String? notes,
     DateTime? watchedDate,
     DateTime? addedDate,
+    int? watchCount,
   }) {
     return WatchlistMovie(
       id: id ?? this.id,
@@ -208,33 +197,34 @@ class WatchlistMovie {
       notes: notes ?? this.notes,
       watchedDate: watchedDate ?? this.watchedDate,
       addedDate: addedDate ?? this.addedDate,
+      watchCount: watchCount ?? this.watchCount,
     );
   }
 
-  /// Получить URL постера
   String get posterUrl {
     if (posterPath == null || posterPath!.isEmpty) return '';
     if (posterPath!.startsWith('http')) return posterPath!;
     return 'https://image.tmdb.org/t/p/w500$posterPath';
   }
 
-  /// Получить оценку для отображения
   String get ratingDisplay {
     if (userRating == null) return '—';
     return userRating!.toStringAsFixed(1);
   }
 
-  /// Получить дату просмотра для отображения
-  String get watchedDateDisplay {
-    if (watchedDate == null) return '';
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
     final now = DateTime.now();
-    final diff = now.difference(watchedDate!);
+    final diff = now.difference(date);
     
     if (diff.inDays == 0) return 'Сегодня';
     if (diff.inDays == 1) return 'Вчера';
     if (diff.inDays < 7) return '${diff.inDays} дн. назад';
     if (diff.inDays < 30) return '${(diff.inDays / 7).floor()} нед. назад';
     
-    return '${watchedDate!.day}.${watchedDate!.month}.${watchedDate!.year}';
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
+
+  String get watchedDateDisplay => _formatDate(watchedDate);
+  String get updatedDateDisplay => _formatDate(addedDate);
 }

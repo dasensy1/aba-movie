@@ -30,8 +30,9 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Увеличиваем версию для миграции
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -92,9 +93,18 @@ class LocalDatabaseService {
         notes TEXT,
         watched_date TEXT,
         added_date TEXT NOT NULL,
+        watch_count INTEGER DEFAULT 0,
         UNIQUE(movie_id)
       )
     ''');
+  }
+
+  /// Миграция базы данных
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Добавляем колонку watch_count, если её нет
+      await db.execute('ALTER TABLE watchlist ADD COLUMN watch_count INTEGER DEFAULT 0');
+    }
   }
 
   /// ============================================================================
@@ -303,20 +313,44 @@ class LocalDatabaseService {
   }
 
   /// Обновить статус фильма в watchlist
-  Future<void> updateWatchlistStatus(int movieId, WatchStatus status, DateTime? watchedDate) async {
+  Future<void> updateWatchlistStatus(int movieId, WatchStatus status, DateTime? watchedDate, {DateTime? addedDate}) async {
     try {
       final db = await database;
+      final updates = <String, dynamic>{
+        'status': status.name,
+      };
+      
+      if (watchedDate != null) {
+        updates['watched_date'] = watchedDate.toIso8601String();
+      }
+      
+      if (addedDate != null) {
+        updates['added_date'] = addedDate.toIso8601String();
+      }
+
       await db.update(
         'watchlist',
-        {
-          'status': status.name,
-          if (watchedDate != null) 'watched_date': watchedDate.toIso8601String(),
-        },
+        updates,
         where: 'movie_id = ?',
         whereArgs: [movieId],
       );
     } catch (e) {
       throw Exception('Ошибка обновления статуса: $e');
+    }
+  }
+
+  /// Обновить количество просмотров
+  Future<void> updateWatchlistWatchCount(int movieId, int count) async {
+    try {
+      final db = await database;
+      await db.update(
+        'watchlist',
+        {'watch_count': count},
+        where: 'movie_id = ?',
+        whereArgs: [movieId],
+      );
+    } catch (e) {
+      throw Exception('Ошибка обновления счетчика просмотров: $e');
     }
   }
 

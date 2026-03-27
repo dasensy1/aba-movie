@@ -3,7 +3,7 @@
 /// ============================================================================
 /// Провайдер для управления треккингом фильмов
 /// Статусы: хочу посмотреть, смотрю, просмотрено, бросил
-/// Оценка, заметки, дата просмотра
+/// Оценка, заметки, дата просмотра, счетчик просмотров
 /// ============================================================================
 
 import 'package:flutter/foundation.dart';
@@ -86,7 +86,6 @@ class WatchlistProvider with ChangeNotifier {
       final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
       final id = await _dbService.addToWatchlist(watchlistMovie);
       
-      // Создаем объект с правильным ID из БД
       final savedMovie = watchlistMovie.copyWith(id: id);
       
       _watchlist.insert(0, savedMovie);
@@ -107,19 +106,59 @@ class WatchlistProvider with ChangeNotifier {
       if (index == -1) return false;
 
       final movie = _watchlist[index];
+      DateTime now = DateTime.now();
       DateTime? watchedDate = movie.watchedDate;
+      int newWatchCount = movie.watchCount;
       
-      // Если статус "просмотрено" и дата не установлена, ставим текущую
-      if (status == WatchStatus.watched && watchedDate == null) {
-        watchedDate = DateTime.now();
+      // Если статус меняется на "просмотрено", увеличиваем счетчик если он был 0
+      if (status == WatchStatus.watched) {
+        watchedDate = now;
+        if (newWatchCount == 0) newWatchCount = 1;
       }
 
       final updatedMovie = movie.copyWith(
         status: status,
         watchedDate: watchedDate,
+        addedDate: now,
+        watchCount: newWatchCount,
       );
 
-      await _dbService.updateWatchlistStatus(movieId, status, watchedDate);
+      await _dbService.updateWatchlistStatus(movieId, status, watchedDate, addedDate: now);
+      if (newWatchCount != movie.watchCount) {
+        await _dbService.updateWatchlistWatchCount(movieId, newWatchCount);
+      }
+      
+      _watchlist[index] = updatedMovie;
+      _categorizeMovies();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Инкремент счетчика просмотров
+  Future<bool> incrementWatchCount(int movieId) async {
+    try {
+      final index = _watchlist.indexWhere((m) => m.movieId == movieId);
+      if (index == -1) return false;
+
+      final movie = _watchlist[index];
+      final newCount = movie.watchCount + 1;
+      final now = DateTime.now();
+
+      final updatedMovie = movie.copyWith(
+        watchCount: newCount,
+        status: WatchStatus.watched, // Если мы увеличиваем счетчик, фильм точно просмотрен
+        watchedDate: now,
+        addedDate: now,
+      );
+
+      await _dbService.updateWatchlistWatchCount(movieId, newCount);
+      await _dbService.updateWatchlistStatus(movieId, WatchStatus.watched, now, addedDate: now);
+      
       _watchlist[index] = updatedMovie;
       _categorizeMovies();
       notifyListeners();
@@ -230,8 +269,15 @@ class WatchlistProvider with ChangeNotifier {
       }
     }
 
+    // Общее количество просмотров (сумма всех watchCount)
+    int totalWatches = 0;
+    for (var m in _watchlist) {
+      totalWatches += m.watchCount;
+    }
+
     return {
       'total': totalCount,
+      'totalWatches': totalWatches,
       'wantToWatch': wantToWatchCount,
       'watching': watchingCount,
       'watched': watchedCount,
