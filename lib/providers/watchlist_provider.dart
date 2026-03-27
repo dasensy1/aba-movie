@@ -84,9 +84,12 @@ class WatchlistProvider with ChangeNotifier {
       }
 
       final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
-      await _dbService.addToWatchlist(watchlistMovie);
+      final id = await _dbService.addToWatchlist(watchlistMovie);
       
-      _watchlist.insert(0, watchlistMovie);
+      // Создаем объект с правильным ID из БД
+      final savedMovie = watchlistMovie.copyWith(id: id);
+      
+      _watchlist.insert(0, savedMovie);
       _categorizeMovies();
       notifyListeners();
       return true;
@@ -111,17 +114,9 @@ class WatchlistProvider with ChangeNotifier {
         watchedDate = DateTime.now();
       }
 
-      final updatedMovie = WatchlistMovie(
-        id: movie.id,
-        movieId: movie.movieId,
-        imdbId: movie.imdbId,
-        title: movie.title,
-        posterPath: movie.posterPath,
+      final updatedMovie = movie.copyWith(
         status: status,
-        userRating: movie.userRating,
-        notes: movie.notes,
         watchedDate: watchedDate,
-        addedDate: movie.addedDate,
       );
 
       await _dbService.updateWatchlistStatus(movieId, status, watchedDate);
@@ -143,19 +138,7 @@ class WatchlistProvider with ChangeNotifier {
       if (index == -1) return false;
 
       final movie = _watchlist[index];
-      
-      final updatedMovie = WatchlistMovie(
-        id: movie.id,
-        movieId: movie.movieId,
-        imdbId: movie.imdbId,
-        title: movie.title,
-        posterPath: movie.posterPath,
-        status: movie.status,
-        userRating: rating,
-        notes: movie.notes,
-        watchedDate: movie.watchedDate,
-        addedDate: movie.addedDate,
-      );
+      final updatedMovie = movie.copyWith(userRating: rating);
 
       await _dbService.updateWatchlistRating(movieId, rating);
       _watchlist[index] = updatedMovie;
@@ -175,19 +158,7 @@ class WatchlistProvider with ChangeNotifier {
       if (index == -1) return false;
 
       final movie = _watchlist[index];
-      
-      final updatedMovie = WatchlistMovie(
-        id: movie.id,
-        movieId: movie.movieId,
-        imdbId: movie.imdbId,
-        title: movie.title,
-        posterPath: movie.posterPath,
-        status: movie.status,
-        userRating: movie.userRating,
-        notes: notes,
-        watchedDate: movie.watchedDate,
-        addedDate: movie.addedDate,
-      );
+      final updatedMovie = movie.copyWith(notes: notes);
 
       await _dbService.updateWatchlistNotes(movieId, notes);
       _watchlist[index] = updatedMovie;

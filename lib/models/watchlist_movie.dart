@@ -125,8 +125,7 @@ class WatchlistMovie {
 
   /// Преобразование в Map для SQLite
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
+    final map = <String, dynamic>{
       'movie_id': movieId,
       'imdb_id': imdbId,
       'title': title,
@@ -137,6 +136,14 @@ class WatchlistMovie {
       'watched_date': watchedDate?.toIso8601String(),
       'added_date': addedDate.toIso8601String(),
     };
+    
+    // Если id != 0, значит это существующая запись, включаем id.
+    // Если id == 0, не включаем его, чтобы сработал AUTOINCREMENT в SQLite.
+    if (id != 0) {
+      map['id'] = id;
+    }
+    
+    return map;
   }
 
   /// Создание из Map SQLite
@@ -167,13 +174,40 @@ class WatchlistMovie {
   /// Создание из Movie модели
   factory WatchlistMovie.fromMovie(dynamic movie, {WatchStatus status = WatchStatus.wantToWatch}) {
     return WatchlistMovie(
-      id: 0, // Будет установлен БД
+      id: 0, // Будет установлен БД (autoincrement)
       movieId: movie.id,
       imdbId: movie.imdbId,
       title: movie.title,
       posterPath: movie.posterPath,
       status: status,
       addedDate: DateTime.now(),
+    );
+  }
+
+  /// Копия с изменениями
+  WatchlistMovie copyWith({
+    int? id,
+    int? movieId,
+    String? imdbId,
+    String? title,
+    String? posterPath,
+    WatchStatus? status,
+    double? userRating,
+    String? notes,
+    DateTime? watchedDate,
+    DateTime? addedDate,
+  }) {
+    return WatchlistMovie(
+      id: id ?? this.id,
+      movieId: movieId ?? this.movieId,
+      imdbId: imdbId ?? this.imdbId,
+      title: title ?? this.title,
+      posterPath: posterPath ?? this.posterPath,
+      status: status ?? this.status,
+      userRating: userRating ?? this.userRating,
+      notes: notes ?? this.notes,
+      watchedDate: watchedDate ?? this.watchedDate,
+      addedDate: addedDate ?? this.addedDate,
     );
   }
 
