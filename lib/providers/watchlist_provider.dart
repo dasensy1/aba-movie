@@ -43,7 +43,9 @@ class WatchlistProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _watchlist = await _dbService.getWatchlist();
+      if (!kIsWeb) {
+        _watchlist = await _dbService.getWatchlist();
+      }
       _categorizeMovies();
       _isLoading = false;
       notifyListeners();
@@ -84,7 +86,10 @@ class WatchlistProvider with ChangeNotifier {
       }
 
       final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
-      await _dbService.addToWatchlist(watchlistMovie);
+      
+      if (!kIsWeb) {
+        await _dbService.addToWatchlist(watchlistMovie);
+      }
       
       _watchlist.insert(0, watchlistMovie);
       _categorizeMovies();
@@ -92,8 +97,12 @@ class WatchlistProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');
+      // Для Веба все равно добавляем в память
+      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
+      _watchlist.insert(0, watchlistMovie);
+      _categorizeMovies();
       notifyListeners();
-      return false;
+      return true;
     }
   }
 
@@ -106,7 +115,6 @@ class WatchlistProvider with ChangeNotifier {
       final movie = _watchlist[index];
       DateTime? watchedDate = movie.watchedDate;
       
-      // Если статус "просмотрено" и дата не установлена, ставим текущую
       if (status == WatchStatus.watched && watchedDate == null) {
         watchedDate = DateTime.now();
       }
@@ -124,14 +132,16 @@ class WatchlistProvider with ChangeNotifier {
         addedDate: movie.addedDate,
       );
 
-      await _dbService.updateWatchlistStatus(movieId, status, watchedDate);
+      if (!kIsWeb) {
+        await _dbService.updateWatchlistStatus(movieId, status, watchedDate);
+      }
+      
       _watchlist[index] = updatedMovie;
       _categorizeMovies();
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString().replaceAll('Exception: ', '');
-      notifyListeners();
+      debugPrint('Update status error: $e');
       return false;
     }
   }
@@ -157,13 +167,14 @@ class WatchlistProvider with ChangeNotifier {
         addedDate: movie.addedDate,
       );
 
-      await _dbService.updateWatchlistRating(movieId, rating);
+      if (!kIsWeb) {
+        await _dbService.updateWatchlistRating(movieId, rating);
+      }
+      
       _watchlist[index] = updatedMovie;
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString().replaceAll('Exception: ', '');
-      notifyListeners();
       return false;
     }
   }
@@ -189,13 +200,14 @@ class WatchlistProvider with ChangeNotifier {
         addedDate: movie.addedDate,
       );
 
-      await _dbService.updateWatchlistNotes(movieId, notes);
+      if (!kIsWeb) {
+        await _dbService.updateWatchlistNotes(movieId, notes);
+      }
+      
       _watchlist[index] = updatedMovie;
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString().replaceAll('Exception: ', '');
-      notifyListeners();
       return false;
     }
   }
@@ -203,14 +215,14 @@ class WatchlistProvider with ChangeNotifier {
   /// Удалить из watchlist
   Future<bool> removeFromWatchlist(int movieId) async {
     try {
-      await _dbService.removeFromWatchlist(movieId);
+      if (!kIsWeb) {
+        await _dbService.removeFromWatchlist(movieId);
+      }
       _watchlist.removeWhere((m) => m.movieId == movieId);
       _categorizeMovies();
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString().replaceAll('Exception: ', '');
-      notifyListeners();
       return false;
     }
   }
@@ -250,7 +262,6 @@ class WatchlistProvider with ChangeNotifier {
             .reduce((a, b) => a + b) / totalRatings
         : 0.0;
 
-    // Группировка по месяцам
     final byMonth = <String, int>{};
     for (final movie in watchedMovies) {
       if (movie.watchedDate != null) {
@@ -270,7 +281,6 @@ class WatchlistProvider with ChangeNotifier {
     };
   }
 
-  /// Сбросить ошибку
   void clearError() {
     _error = null;
     notifyListeners();

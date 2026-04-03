@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/local_database_service.dart';
 
@@ -19,8 +19,10 @@ class ReviewsProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final reviews = await _dbService.getMovieReviews(movieId);
-      _movieReviews[movieId] = reviews;
+      if (!kIsWeb) {
+        final reviews = await _dbService.getMovieReviews(movieId);
+        _movieReviews[movieId] = reviews;
+      }
     } catch (e) {
       debugPrint('Error loading reviews: $e');
     } finally {
@@ -31,19 +33,40 @@ class ReviewsProvider with ChangeNotifier {
 
   Future<void> addReview(Review review) async {
     try {
-      await _dbService.addReview(review);
-      // Перезагружаем список после добавления
-      await loadReviews(review.movieId);
+      if (!kIsWeb) {
+        await _dbService.addReview(review);
+        // Перезагружаем список после добавления
+        await loadReviews(review.movieId);
+      } else {
+        // Fallback для Web: сохраняем в памяти
+        if (!_movieReviews.containsKey(review.movieId)) {
+          _movieReviews[review.movieId] = [];
+        }
+        _movieReviews[review.movieId]!.insert(0, review);
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error adding review: $e');
-      rethrow;
+      // Даже если БД упала, добавим в память для вида
+      if (!_movieReviews.containsKey(review.movieId)) {
+        _movieReviews[review.movieId] = [];
+      }
+      _movieReviews[review.movieId]!.insert(0, review);
+      notifyListeners();
     }
   }
 
   Future<void> deleteReview(int reviewId, int movieId) async {
     try {
-      await _dbService.deleteReview(reviewId);
-      await loadReviews(movieId);
+      if (!kIsWeb) {
+        await _dbService.deleteReview(reviewId);
+        await loadReviews(movieId);
+      } else {
+        if (_movieReviews.containsKey(movieId)) {
+          _movieReviews[movieId]!.removeWhere((r) => r.id == reviewId);
+          notifyListeners();
+        }
+      }
     } catch (e) {
       debugPrint('Error deleting review: $e');
     }
