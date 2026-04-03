@@ -238,7 +238,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 children: [
                   const Text(
                     'ПОСМОТРЕЛ ЕЩЕ РАЗ',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.black, fontSize: 16),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
                   ),
                   Text(
                     'Всего просмотров: $_watchCount',
