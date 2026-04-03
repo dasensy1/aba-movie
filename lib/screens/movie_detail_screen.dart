@@ -4,6 +4,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
 import 'widgets/status_rating_widget.dart';
+import 'widgets/reviews_widget.dart';
 
 /// ============================================================================
 /// MOVIE DETAIL SCREEN - УЛУЧШЕННЫЙ UI
@@ -206,6 +207,12 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   if (_isInWatchlist) _buildQuickAddButton(),
                   _buildDescription(movie),
                   _buildWatchlistSection(movie),
+                  const SizedBox(height: 24),
+                  // Обзоры
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ReviewsWidget(movieId: movie.id),
+                  ),
                   const SizedBox(height: 40),
                 ],
               ),

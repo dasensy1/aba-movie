@@ -38,7 +38,9 @@ class WatchlistProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      _watchlist = await _dbService.getWatchlist();
+      if (!kIsWeb) {
+        _watchlist = await _dbService.getWatchlist();
+      }
       _categorizeMovies();
       await loadActivityLog();
       _isLoading = false;
@@ -82,13 +84,34 @@ class WatchlistProvider with ChangeNotifier {
     try {
       if (isInWatchlist(movie.id)) return false;
       final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
+<<<<<<< HEAD
       final id = await _dbService.addToWatchlist(watchlistMovie);
       _watchlist.insert(0, watchlistMovie.copyWith(id: id));
+=======
+      
+      if (!kIsWeb) {
+        await _dbService.addToWatchlist(watchlistMovie);
+      }
+      
+      _watchlist.insert(0, watchlistMovie);
+>>>>>>> main-fixed
       _categorizeMovies();
       await loadActivityLog();
       notifyListeners();
       return true;
+<<<<<<< HEAD
     } catch (e) { return false; }
+=======
+    } catch (e) {
+      _error = e.toString().replaceAll('Exception: ', '');
+      // Для Веба все равно добавляем в память
+      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
+      _watchlist.insert(0, watchlistMovie);
+      _categorizeMovies();
+      notifyListeners();
+      return true;
+    }
+>>>>>>> main-fixed
   }
 
   Future<bool> updateStatus(int movieId, WatchStatus status) async {
@@ -96,25 +119,88 @@ class WatchlistProvider with ChangeNotifier {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
       final movie = _watchlist[index];
+<<<<<<< HEAD
       DateTime now = DateTime.now();
       await _dbService.updateWatchlistStatus(movieId, status, status == WatchStatus.watched ? now : movie.watchedDate, addedDate: now);
       _watchlist[index] = movie.copyWith(status: status, addedDate: now, watchedDate: status == WatchStatus.watched ? now : movie.watchedDate);
+=======
+      DateTime? watchedDate = movie.watchedDate;
+      
+      if (status == WatchStatus.watched && watchedDate == null) {
+        watchedDate = DateTime.now();
+      }
+
+      final updatedMovie = WatchlistMovie(
+        id: movie.id,
+        movieId: movie.movieId,
+        imdbId: movie.imdbId,
+        title: movie.title,
+        posterPath: movie.posterPath,
+        status: status,
+        userRating: movie.userRating,
+        notes: movie.notes,
+        watchedDate: watchedDate,
+        addedDate: movie.addedDate,
+      );
+
+      if (!kIsWeb) {
+        await _dbService.updateWatchlistStatus(movieId, status, watchedDate);
+      }
+      
+      _watchlist[index] = updatedMovie;
+>>>>>>> main-fixed
       _categorizeMovies();
       await loadActivityLog();
       notifyListeners();
       return true;
+<<<<<<< HEAD
     } catch (e) { return false; }
+=======
+    } catch (e) {
+      debugPrint('Update status error: $e');
+      return false;
+    }
+>>>>>>> main-fixed
   }
 
   Future<bool> updateRating(int movieId, double rating) async {
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
+<<<<<<< HEAD
       await _dbService.updateWatchlistRating(movieId, rating);
       _watchlist[index] = _watchlist[index].copyWith(userRating: rating);
       notifyListeners();
       return true;
     } catch (e) { return false; }
+=======
+
+      final movie = _watchlist[index];
+      
+      final updatedMovie = WatchlistMovie(
+        id: movie.id,
+        movieId: movie.movieId,
+        imdbId: movie.imdbId,
+        title: movie.title,
+        posterPath: movie.posterPath,
+        status: movie.status,
+        userRating: rating,
+        notes: movie.notes,
+        watchedDate: movie.watchedDate,
+        addedDate: movie.addedDate,
+      );
+
+      if (!kIsWeb) {
+        await _dbService.updateWatchlistRating(movieId, rating);
+      }
+      
+      _watchlist[index] = updatedMovie;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
+    }
+>>>>>>> main-fixed
   }
 
   Future<bool> incrementWatchCount(int movieId) async {
@@ -122,6 +208,7 @@ class WatchlistProvider with ChangeNotifier {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
       final movie = _watchlist[index];
+<<<<<<< HEAD
       final now = DateTime.now();
       await _dbService.addWatchLogEntry(movieId, now);
       _watchlist[index] = movie.copyWith(watchCount: movie.watchCount + 1, status: WatchStatus.watched, watchedDate: now, addedDate: now);
@@ -130,17 +217,51 @@ class WatchlistProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) { return false; }
+=======
+      
+      final updatedMovie = WatchlistMovie(
+        id: movie.id,
+        movieId: movie.movieId,
+        imdbId: movie.imdbId,
+        title: movie.title,
+        posterPath: movie.posterPath,
+        status: movie.status,
+        userRating: movie.userRating,
+        notes: notes,
+        watchedDate: movie.watchedDate,
+        addedDate: movie.addedDate,
+      );
+
+      if (!kIsWeb) {
+        await _dbService.updateWatchlistNotes(movieId, notes);
+      }
+      
+      _watchlist[index] = updatedMovie;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
+    }
+>>>>>>> main-fixed
   }
 
   Future<bool> removeFromWatchlist(int movieId) async {
     try {
-      await _dbService.removeFromWatchlist(movieId);
+      if (!kIsWeb) {
+        await _dbService.removeFromWatchlist(movieId);
+      }
       _watchlist.removeWhere((m) => m.movieId == movieId);
       _categorizeMovies();
       await loadActivityLog();
       notifyListeners();
       return true;
+<<<<<<< HEAD
     } catch (e) { return false; }
+=======
+    } catch (e) {
+      return false;
+    }
+>>>>>>> main-fixed
   }
 
   Map<String, dynamic> getStatistics() {
@@ -148,7 +269,25 @@ class WatchlistProvider with ChangeNotifier {
     for (var m in _watchlist) totalWatches += m.watchCount;
     final watchedMovies = _watched;
     final totalRatings = watchedMovies.where((m) => m.userRating != null).length;
+<<<<<<< HEAD
     final averageRating = totalRatings > 0 ? watchedMovies.where((m) => m.userRating != null).map((m) => m.userRating!).reduce((a, b) => a + b) / totalRatings : 0.0;
+=======
+    final averageRating = totalRatings > 0
+        ? watchedMovies
+            .where((m) => m.userRating != null)
+            .map((m) => m.userRating!)
+            .reduce((a, b) => a + b) / totalRatings
+        : 0.0;
+
+    final byMonth = <String, int>{};
+    for (final movie in watchedMovies) {
+      if (movie.watchedDate != null) {
+        final key = '${movie.watchedDate!.year}-${movie.watchedDate!.month.toString().padLeft(2, '0')}';
+        byMonth[key] = (byMonth[key] ?? 0) + 1;
+      }
+    }
+
+>>>>>>> main-fixed
     return {
       'total': totalCount,
       'totalWatches': totalWatches,
@@ -159,4 +298,12 @@ class WatchlistProvider with ChangeNotifier {
       'averageRating': averageRating,
     };
   }
+<<<<<<< HEAD
+=======
+
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+>>>>>>> main-fixed
 }
