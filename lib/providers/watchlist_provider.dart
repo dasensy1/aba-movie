@@ -15,7 +15,7 @@ class WatchlistProvider with ChangeNotifier {
   List<WatchlistMovie> _watched = [];
   List<WatchlistMovie> _dropped = [];
   List<Map<String, dynamic>> _activityLog = [];
-  
+
   bool _isLoading = false;
   String? _error;
 
@@ -27,7 +27,7 @@ class WatchlistProvider with ChangeNotifier {
   List<Map<String, dynamic>> get activityLog => _activityLog;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  
+
   int get totalCount => _watchlist.length;
   int get wantToWatchCount => _wantToWatch.length;
   int get watchingCount => _watching.length;
@@ -56,7 +56,7 @@ class WatchlistProvider with ChangeNotifier {
     try {
       final db = await _dbService.database;
       final result = await db.rawQuery('''
-        SELECT wl.title, wl.poster_path, log.status, log.watch_date 
+        SELECT wl.title, wl.poster_path, log.status, log.watch_date
         FROM watch_log log
         JOIN watchlist wl ON log.movie_id = wl.movie_id
         ORDER BY log.watch_date DESC
@@ -80,103 +80,95 @@ class WatchlistProvider with ChangeNotifier {
     try { return _watchlist.firstWhere((m) => m.movieId == movieId); } catch (e) { return null; }
   }
 
-  Future<bool> addToWatchlist(dynamic movie, {WatchStatus status = WatchStatus.wantToWatch}) async {
+  /// Добавить фильм в watchlist с опциональной датой просмотра
+  Future<bool> addToWatchlist(dynamic movie, {WatchStatus status = WatchStatus.wantToWatch, DateTime? watchedDate}) async {
     try {
       if (isInWatchlist(movie.id)) return false;
-      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
-<<<<<<< HEAD
-      final id = await _dbService.addToWatchlist(watchlistMovie);
-      _watchlist.insert(0, watchlistMovie.copyWith(id: id));
-=======
       
+      // Проверка на будущую дату
+      if (watchedDate != null && watchedDate.isAfter(DateTime.now())) {
+        _error = 'Нельзя установить будущую дату просмотра';
+        return false;
+      }
+
+      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status).copyWith(
+        watchedDate: watchedDate,
+        watchCount: status == WatchStatus.watched ? 1 : 0,
+      );
+
       if (!kIsWeb) {
         await _dbService.addToWatchlist(watchlistMovie);
       }
-      
+
       _watchlist.insert(0, watchlistMovie);
->>>>>>> main-fixed
       _categorizeMovies();
       await loadActivityLog();
       notifyListeners();
       return true;
-<<<<<<< HEAD
-    } catch (e) { return false; }
-=======
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');
       // Для Веба все равно добавляем в память
-      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status);
+      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status).copyWith(
+        watchedDate: watchedDate,
+        watchCount: status == WatchStatus.watched ? 1 : 0,
+      );
       _watchlist.insert(0, watchlistMovie);
       _categorizeMovies();
       notifyListeners();
       return true;
     }
->>>>>>> main-fixed
   }
 
-  Future<bool> updateStatus(int movieId, WatchStatus status) async {
+  /// Обновить статус фильма с опциональной датой просмотра
+  Future<bool> updateStatus(int movieId, WatchStatus status, {DateTime? watchedDate}) async {
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
+      
       final movie = _watchlist[index];
-<<<<<<< HEAD
-      DateTime now = DateTime.now();
-      await _dbService.updateWatchlistStatus(movieId, status, status == WatchStatus.watched ? now : movie.watchedDate, addedDate: now);
-      _watchlist[index] = movie.copyWith(status: status, addedDate: now, watchedDate: status == WatchStatus.watched ? now : movie.watchedDate);
-=======
-      DateTime? watchedDate = movie.watchedDate;
-      
-      if (status == WatchStatus.watched && watchedDate == null) {
-        watchedDate = DateTime.now();
+      DateTime? finalWatchedDate = watchedDate ?? movie.watchedDate;
+
+      // Проверка на будущую дату
+      if (finalWatchedDate != null && finalWatchedDate.isAfter(DateTime.now())) {
+        _error = 'Нельзя установить будущую дату просмотра';
+        return false;
       }
 
-      final updatedMovie = WatchlistMovie(
-        id: movie.id,
-        movieId: movie.movieId,
-        imdbId: movie.imdbId,
-        title: movie.title,
-        posterPath: movie.posterPath,
-        status: status,
-        userRating: movie.userRating,
-        notes: movie.notes,
-        watchedDate: watchedDate,
-        addedDate: movie.addedDate,
-      );
+      // Если статус "просмотрено" и даты нет, ставим текущую
+      if (status == WatchStatus.watched && finalWatchedDate == null) {
+        finalWatchedDate = DateTime.now();
+      }
 
+      final now = DateTime.now();
+      
       if (!kIsWeb) {
-        await _dbService.updateWatchlistStatus(movieId, status, watchedDate);
+        await _dbService.updateWatchlistStatus(movieId, status, finalWatchedDate, addedDate: now);
       }
+
+      _watchlist[index] = movie.copyWith(
+        status: status,
+        addedDate: now,
+        watchedDate: finalWatchedDate,
+        watchCount: status == WatchStatus.watched ? (movie.watchCount > 0 ? movie.watchCount : 1) : movie.watchCount,
+      );
       
-      _watchlist[index] = updatedMovie;
->>>>>>> main-fixed
       _categorizeMovies();
       await loadActivityLog();
       notifyListeners();
       return true;
-<<<<<<< HEAD
-    } catch (e) { return false; }
-=======
     } catch (e) {
       debugPrint('Update status error: $e');
       return false;
     }
->>>>>>> main-fixed
   }
 
   Future<bool> updateRating(int movieId, double rating) async {
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
-<<<<<<< HEAD
-      await _dbService.updateWatchlistRating(movieId, rating);
-      _watchlist[index] = _watchlist[index].copyWith(userRating: rating);
-      notifyListeners();
-      return true;
-    } catch (e) { return false; }
-=======
 
       final movie = _watchlist[index];
-      
+
       final updatedMovie = WatchlistMovie(
         id: movie.id,
         movieId: movie.movieId,
@@ -193,32 +185,22 @@ class WatchlistProvider with ChangeNotifier {
       if (!kIsWeb) {
         await _dbService.updateWatchlistRating(movieId, rating);
       }
-      
+
       _watchlist[index] = updatedMovie;
       notifyListeners();
       return true;
     } catch (e) {
       return false;
     }
->>>>>>> main-fixed
   }
 
-  Future<bool> incrementWatchCount(int movieId) async {
+  Future<bool> updateNotes(int movieId, String notes) async {
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
+
       final movie = _watchlist[index];
-<<<<<<< HEAD
-      final now = DateTime.now();
-      await _dbService.addWatchLogEntry(movieId, now);
-      _watchlist[index] = movie.copyWith(watchCount: movie.watchCount + 1, status: WatchStatus.watched, watchedDate: now, addedDate: now);
-      _categorizeMovies();
-      await loadActivityLog();
-      notifyListeners();
-      return true;
-    } catch (e) { return false; }
-=======
-      
+
       final updatedMovie = WatchlistMovie(
         id: movie.id,
         movieId: movie.movieId,
@@ -235,14 +217,47 @@ class WatchlistProvider with ChangeNotifier {
       if (!kIsWeb) {
         await _dbService.updateWatchlistNotes(movieId, notes);
       }
-      
+
       _watchlist[index] = updatedMovie;
       notifyListeners();
       return true;
     } catch (e) {
       return false;
     }
->>>>>>> main-fixed
+  }
+
+  Future<bool> incrementWatchCount(int movieId, {DateTime? watchedDate}) async {
+    try {
+      final index = _watchlist.indexWhere((m) => m.movieId == movieId);
+      if (index == -1) return false;
+      
+      final movie = _watchlist[index];
+      final now = watchedDate ?? DateTime.now();
+
+      // Проверка на будущую дату
+      if (watchedDate != null && watchedDate.isAfter(DateTime.now())) {
+        _error = 'Нельзя установить будущую дату просмотра';
+        return false;
+      }
+
+      if (!kIsWeb) {
+        await _dbService.addWatchLogEntry(movieId, now);
+      }
+      
+      _watchlist[index] = movie.copyWith(
+        watchCount: movie.watchCount + 1,
+        status: WatchStatus.watched,
+        watchedDate: now,
+        addedDate: now,
+      );
+      
+      _categorizeMovies();
+      await loadActivityLog();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<bool> removeFromWatchlist(int movieId) async {
@@ -255,13 +270,9 @@ class WatchlistProvider with ChangeNotifier {
       await loadActivityLog();
       notifyListeners();
       return true;
-<<<<<<< HEAD
-    } catch (e) { return false; }
-=======
     } catch (e) {
       return false;
     }
->>>>>>> main-fixed
   }
 
   Map<String, dynamic> getStatistics() {
@@ -269,9 +280,6 @@ class WatchlistProvider with ChangeNotifier {
     for (var m in _watchlist) totalWatches += m.watchCount;
     final watchedMovies = _watched;
     final totalRatings = watchedMovies.where((m) => m.userRating != null).length;
-<<<<<<< HEAD
-    final averageRating = totalRatings > 0 ? watchedMovies.where((m) => m.userRating != null).map((m) => m.userRating!).reduce((a, b) => a + b) / totalRatings : 0.0;
-=======
     final averageRating = totalRatings > 0
         ? watchedMovies
             .where((m) => m.userRating != null)
@@ -287,7 +295,6 @@ class WatchlistProvider with ChangeNotifier {
       }
     }
 
->>>>>>> main-fixed
     return {
       'total': totalCount,
       'totalWatches': totalWatches,
@@ -298,12 +305,9 @@ class WatchlistProvider with ChangeNotifier {
       'averageRating': averageRating,
     };
   }
-<<<<<<< HEAD
-=======
 
   void clearError() {
     _error = null;
     notifyListeners();
   }
->>>>>>> main-fixed
 }

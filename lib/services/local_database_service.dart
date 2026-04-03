@@ -2,15 +2,12 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/models.dart';
 
-<<<<<<< HEAD
-=======
 /// ============================================================================
 /// LOCAL DATABASE SERVICE (SQFLITE)
 /// ============================================================================
 /// Сервис для локального хранения данных (избранные фильмы, настройки, обзоры)
 /// ============================================================================
 
->>>>>>> main-fixed
 class LocalDatabaseService {
   static final LocalDatabaseService _instance = LocalDatabaseService._internal();
   factory LocalDatabaseService() => _instance;
@@ -30,11 +27,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-<<<<<<< HEAD
-      version: 4,
-=======
-      version: 2, // Увеличили версию для новой таблицы
->>>>>>> main-fixed
+      version: 5, // Увеличено для поддержки watched_date
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -97,25 +90,16 @@ class LocalDatabaseService {
       )
     ''');
 
-<<<<<<< HEAD
     await db.execute('''
       CREATE TABLE watch_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         movie_id INTEGER NOT NULL,
         status TEXT NOT NULL,
         watch_date TEXT NOT NULL
-=======
+      )
+    ''');
+
     // Таблица обзоров
-    await _createReviewsTable(db);
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await _createReviewsTable(db);
-    }
-  }
-
-  Future<void> _createReviewsTable(Database db) async {
     await db.execute('''
       CREATE TABLE reviews (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,7 +110,6 @@ class LocalDatabaseService {
         rating REAL NOT NULL,
         comment TEXT NOT NULL,
         createdAt TEXT NOT NULL
->>>>>>> main-fixed
       )
     ''');
   }
@@ -140,6 +123,14 @@ class LocalDatabaseService {
     }
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE watch_log ADD COLUMN status TEXT DEFAULT "watched"');
+    }
+    if (oldVersion < 5) {
+      // Добавляем watched_date если его нет (уже есть в CREATE TABLE, но для старых баз)
+      try {
+        await db.execute('ALTER TABLE watchlist ADD COLUMN watched_date TEXT');
+      } catch (e) {
+        // Колонка уже существует
+      }
     }
   }
 
@@ -228,14 +219,6 @@ class LocalDatabaseService {
     return maps.map((map) => WatchlistMovie.fromMap(map)).toList();
   }
 
-<<<<<<< HEAD
-  Future<void> clearAll() async {
-    final db = await database;
-    await db.delete('favorites');
-    await db.delete('watchlist');
-    await db.delete('watch_log');
-    await db.delete('history');
-=======
   /// Получить фильмы по статусу
   Future<List<WatchlistMovie>> getWatchlistByStatus(WatchStatus status) async {
     try {
@@ -319,6 +302,8 @@ class LocalDatabaseService {
     try {
       final db = await database;
       await db.delete('favorites');
+      await db.delete('watchlist');
+      await db.delete('watch_log');
       await db.delete('history');
       await db.delete('reviews');
     } catch (e) {
@@ -332,6 +317,5 @@ class LocalDatabaseService {
       await _database!.close();
       _database = null;
     }
->>>>>>> main-fixed
   }
 }

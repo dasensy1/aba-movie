@@ -262,16 +262,43 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.history, size: 12, color: Colors.grey[500]),
-                      const SizedBox(width: 4),
-                      Text(
-                        movie.updatedDateDisplay,
-                        style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                      ),
-                    ],
+                  // Статус
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(movie.status).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _getStatusColor(movie.status).withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(movie.status.icon, size: 12, color: _getStatusColor(movie.status)),
+                        const SizedBox(width: 4),
+                        Text(
+                          movie.status.shortNameRu,
+                          style: TextStyle(
+                            color: _getStatusColor(movie.status),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  // Дата просмотра
+                  if (movie.watchedDate != null)
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 12, color: Colors.grey[500]),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Смотрел: ${movie.watchedDateDisplay}',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -288,12 +315,33 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                             const Icon(Icons.repeat, size: 12, color: Color(0xFF00E5FF)),
                             const SizedBox(width: 4),
                             Text(
-                              'Просмотров: ${movie.watchCount}',
+                              '${movie.watchCount}',
                               style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
                       ),
+                      if (movie.userRating != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.star, size: 12, color: Colors.amber),
+                              const SizedBox(width: 4),
+                              Text(
+                                movie.ratingDisplay,
+                                style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -304,21 +352,298 @@ class _WatchlistScreenState extends State<WatchlistScreen>
               children: [
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline, color: Color(0xFF7C4DFF)),
-                  onPressed: () => context.read<WatchlistProvider>().incrementWatchCount(movie.movieId),
+                  onPressed: () => _showAddWatchDialog(movie),
                   tooltip: 'Добавить просмотр',
                 ),
-                PopupMenuButton<WatchStatus>(
+                PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, color: Colors.grey),
-                  onSelected: (status) => context.read<WatchlistProvider>().updateStatus(movie.movieId, status),
-                  itemBuilder: (context) => WatchStatus.values.map((s) => PopupMenuItem(
-                    value: s,
-                    child: Text(s.nameRu),
-                  )).toList(),
+                  onSelected: (value) => _handleMenuAction(value, movie),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'change_date',
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 20),
+                          SizedBox(width: 12),
+                          Text('Изменить дату'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'change_status',
+                      child: Row(
+                        children: [
+                          Icon(Icons.swap_horiz, size: 20),
+                          SizedBox(width: 12),
+                          Text('Изменить статус'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'remove',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.delete, size: 20, color: Colors.red),
+                          const SizedBox(width: 12),
+                          Text('Удалить', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(WatchStatus status) {
+    switch (status) {
+      case WatchStatus.wantToWatch:
+        return const Color(0xFF7C4DFF);
+      case WatchStatus.watching:
+        return const Color(0xFF00E5FF);
+      case WatchStatus.watched:
+        return Colors.green;
+      case WatchStatus.dropped:
+        return Colors.red;
+    }
+  }
+
+  Future<void> _handleMenuAction(String action, WatchlistMovie movie) async {
+    final provider = context.read<WatchlistProvider>();
+    
+    switch (action) {
+      case 'change_date':
+        await _changeWatchDate(movie);
+        break;
+      case 'change_status':
+        final newStatus = await _showStatusChangeDialog(movie);
+        if (newStatus != null) {
+          await provider.updateStatus(movie.movieId, newStatus);
+        }
+        break;
+      case 'remove':
+        await provider.removeFromWatchlist(movie.movieId);
+        break;
+    }
+  }
+
+  Future<void> _changeWatchDate(WatchlistMovie movie) async {
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: movie.watchedDate ?? now,
+      firstDate: DateTime(1900),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF7C4DFF),
+              onPrimary: Colors.white,
+              surface: Color(0xFF1A1A1A),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null) {
+      if (pickedDate.isAfter(now)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Нельзя выбрать будущую дату!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      await context.read<WatchlistProvider>().updateStatus(
+        movie.movieId,
+        movie.status,
+        watchedDate: pickedDate,
+      );
+    }
+  }
+
+  Future<WatchStatus?> _showStatusChangeDialog(WatchlistMovie movie) async {
+    return await showModalBottomSheet<WatchStatus>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Выберите статус',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            ...WatchStatus.values.map((status) => GestureDetector(
+              onTap: () => Navigator.pop(context, status),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: movie.status == status
+                      ? _getStatusColor(status).withOpacity(0.2)
+                      : const Color(0xFF2A2A2A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: movie.status == status
+                        ? _getStatusColor(status)
+                        : const Color(0xFF333333),
+                    width: movie.status == status ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(status.icon, color: _getStatusColor(status)),
+                    const SizedBox(width: 12),
+                    Text(status.nameRu, style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddWatchDialog(WatchlistMovie movie) async {
+    final now = DateTime.now();
+    DateTime? selectedDate = now;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Добавить просмотр',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Дата просмотра',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate ?? now,
+                      firstDate: DateTime(1900),
+                      lastDate: now,
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: Color(0xFF7C4DFF),
+                              onPrimary: Colors.white,
+                              surface: Color(0xFF1A1A1A),
+                              onSurface: Colors.white,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+
+                    if (pickedDate != null) {
+                      if (pickedDate.isAfter(now)) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Нельзя выбрать будущую дату!'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                      setModalState(() {
+                        selectedDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF333333)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Color(0xFF7C4DFF)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            selectedDate != null
+                                ? '${selectedDate!.day.toString().padLeft(2, '0')}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.year}'
+                                : 'Выберите дату',
+                            style: TextStyle(
+                              color: selectedDate != null ? Colors.white : Colors.grey[500],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context.read<WatchlistProvider>().incrementWatchCount(
+                        movie.movieId,
+                        watchedDate: selectedDate,
+                      );
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C4DFF),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Добавить',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

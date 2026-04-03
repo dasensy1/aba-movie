@@ -101,9 +101,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         _watchCount = 0;
       });
     } else {
-      final selectedStatus = await _showStatusSelection();
-      if (selectedStatus != null) {
-        await provider.addToWatchlist(_currentMovie, status: selectedStatus);
+      final result = await _showStatusSelection();
+      if (result != null) {
+        final (status, watchedDate) = result;
+        await provider.addToWatchlist(_currentMovie, status: status, watchedDate: watchedDate);
         _checkStatuses();
       }
     }
@@ -126,49 +127,170 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     }
   }
 
-  Future<WatchStatus?> _showStatusSelection() async {
-    return await showModalBottomSheet<WatchStatus>(
+  Future<(WatchStatus, DateTime?)?> _showStatusSelection() async {
+    WatchStatus? selectedStatus;
+    DateTime? selectedDate;
+
+    return await showModalBottomSheet<(WatchStatus, DateTime?)>(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Выберите статус',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
             ),
-            const SizedBox(height: 16),
-            ...WatchStatus.values.map((status) => _buildStatusOption(status)),
-          ],
-        ),
-      ),
-    );
-  }
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Выберите статус',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 16),
+                ...WatchStatus.values.map((status) => GestureDetector(
+                  onTap: () {
+                    setModalState(() {
+                      selectedStatus = status;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: selectedStatus == status
+                          ? _getStatusColor(status).withOpacity(0.2)
+                          : const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selectedStatus == status
+                            ? _getStatusColor(status)
+                            : const Color(0xFF333333),
+                        width: selectedStatus == status ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(status.icon, color: _getStatusColor(status)),
+                        const SizedBox(width: 12),
+                        Text(status.nameRu, style: const TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                )),
+                const SizedBox(height: 16),
+                const Divider(color: Color(0xFF333333)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Дата просмотра',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final now = DateTime.now();
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: now,
+                      firstDate: DateTime(1900),
+                      lastDate: now,
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: Color(0xFF7C4DFF),
+                              onPrimary: Colors.white,
+                              surface: Color(0xFF1A1A1A),
+                              onSurface: Colors.white,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
 
-  Widget _buildStatusOption(WatchStatus status) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context, status),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF333333)),
-        ),
-        child: Row(
-          children: [
-            Icon(status.icon, color: _getStatusColor(status)),
-            const SizedBox(width: 12),
-            Text(status.nameRu, style: const TextStyle(color: Colors.white)),
-          ],
-        ),
+                    if (pickedDate != null) {
+                      // Проверка на будущую дату (дополнительная)
+                      if (pickedDate.isAfter(now)) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Нельзя выбрать будущую дату!'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                      setModalState(() {
+                        selectedDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF333333)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Color(0xFF7C4DFF)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            selectedDate != null
+                                ? '${selectedDate!.day.toString().padLeft(2, '0')}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.year}'
+                                : 'Выберите дату (необязательно)',
+                            style: TextStyle(
+                              color: selectedDate != null ? Colors.white : Colors.grey[500],
+                            ),
+                          ),
+                        ),
+                        if (selectedDate != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.red),
+                            onPressed: () {
+                              setModalState(() {
+                                selectedDate = null;
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: selectedStatus != null
+                        ? () => Navigator.pop(context, (selectedStatus!, selectedDate))
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C4DFF),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Добавить',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
