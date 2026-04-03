@@ -38,6 +38,10 @@ class MovieTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => WatchlistProvider()..loadWatchlist(),
         ),
+        // Reviews Provider
+        ChangeNotifierProvider(
+          create: (_) => ReviewsProvider(),
+        ),
         // Settings Provider
         ChangeNotifierProvider(
           create: (_) => SettingsProvider()..initialize(),

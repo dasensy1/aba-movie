@@ -3,3 +3,4 @@ export 'movies_provider.dart';
 export 'favorites_provider.dart';
 export 'settings_provider.dart';
 export 'watchlist_provider.dart';
+export 'reviews_provider.dart';

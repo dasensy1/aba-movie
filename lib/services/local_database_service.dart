@@ -5,7 +5,7 @@ import '../models/models.dart';
 /// ============================================================================
 /// LOCAL DATABASE SERVICE (SQFLITE)
 /// ============================================================================
-/// Сервис для локального хранения данных (избранные фильмы, настройки)
+/// Сервис для локального хранения данных (избранные фильмы, настройки, обзоры)
 /// ============================================================================
 
 class LocalDatabaseService {
@@ -30,8 +30,9 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Увеличили версию для новой таблицы
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -93,6 +94,30 @@ class LocalDatabaseService {
         watched_date TEXT,
         added_date TEXT NOT NULL,
         UNIQUE(movie_id)
+      )
+    ''');
+
+    // Таблица обзоров
+    await _createReviewsTable(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createReviewsTable(db);
+    }
+  }
+
+  Future<void> _createReviewsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        movieId INTEGER NOT NULL,
+        userId TEXT NOT NULL,
+        userName TEXT NOT NULL,
+        userPhotoUrl TEXT,
+        rating REAL NOT NULL,
+        comment TEXT NOT NULL,
+        createdAt TEXT NOT NULL
       )
     ''');
   }
@@ -423,6 +448,51 @@ class LocalDatabaseService {
   }
 
   /// ============================================================================
+  /// REVIEWS (ОБЗОРЫ)
+  /// ============================================================================
+
+  /// Добавить обзор
+  Future<int> addReview(Review review) async {
+    try {
+      final db = await database;
+      return await db.insert('reviews', review.toMap());
+    } catch (e) {
+      throw Exception('Ошибка добавления обзора: $e');
+    }
+  }
+
+  /// Получить обзоры фильма
+  Future<List<Review>> getMovieReviews(int movieId) async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        'reviews',
+        where: 'movieId = ?',
+        whereArgs: [movieId],
+        orderBy: 'createdAt DESC',
+      );
+      return maps.map((map) => Review.fromMap(map)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Удалить обзор
+  Future<bool> deleteReview(int reviewId) async {
+    try {
+      final db = await database;
+      final deleted = await db.delete(
+        'reviews',
+        where: 'id = ?',
+        whereArgs: [reviewId],
+      );
+      return deleted > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// ============================================================================
   /// ОЧИСТКА БАЗЫ
   /// ============================================================================
   Future<void> clearAll() async {
@@ -430,6 +500,7 @@ class LocalDatabaseService {
       final db = await database;
       await db.delete('favorites');
       await db.delete('history');
+      await db.delete('reviews');
     } catch (e) {
       throw Exception('Ошибка очистки базы: $e');
     }
