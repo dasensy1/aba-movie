@@ -2,9 +2,16 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/local_database_service.dart';
 
+/// ============================================================================
+/// REVIEWS PROVIDER — Версия 2 (user-scoped)
+/// ============================================================================
+/// Обзоры привязаны к пользователям через user_id в БД.
+/// Для UI используется userId из AuthProvider.
+/// ============================================================================
+
 class ReviewsProvider with ChangeNotifier {
   final LocalDatabaseService _dbService = LocalDatabaseService();
-  
+
   Map<int, List<Review>> _movieReviews = {};
   bool _isLoading = false;
 
@@ -19,54 +26,37 @@ class ReviewsProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      if (!kIsWeb) {
-        final reviews = await _dbService.getMovieReviews(movieId);
-        _movieReviews[movieId] = reviews;
-      }
+      final reviews = await _dbService.getMovieReviews(movieId);
+      _movieReviews[movieId] = reviews;
     } catch (e) {
       debugPrint('Error loading reviews: $e');
+      _movieReviews[movieId] = [];
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> addReview(Review review) async {
+  /// Добавить обзор (требуется userId текущего пользователя)
+  Future<void> addReview(Review review, int? userId) async {
+    if (userId == null) return;
+
     try {
-      if (!kIsWeb) {
-        await _dbService.addReview(review);
-        // Перезагружаем список после добавления
-        await loadReviews(review.movieId);
-      } else {
-        // Fallback для Web: сохраняем в памяти
-        if (!_movieReviews.containsKey(review.movieId)) {
-          _movieReviews[review.movieId] = [];
-        }
-        _movieReviews[review.movieId]!.insert(0, review);
-        notifyListeners();
-      }
+      await _dbService.addReview(review, userId);
+      // Перезагружаем список после добавления
+      await loadReviews(review.movieId);
     } catch (e) {
       debugPrint('Error adding review: $e');
-      // Даже если БД упала, добавим в память для вида
-      if (!_movieReviews.containsKey(review.movieId)) {
-        _movieReviews[review.movieId] = [];
-      }
-      _movieReviews[review.movieId]!.insert(0, review);
-      notifyListeners();
     }
   }
 
-  Future<void> deleteReview(int reviewId, int movieId) async {
+  /// Удалить обзор (user-scoped — можно удалить только свой)
+  Future<void> deleteReview(int reviewId, int movieId, int? userId) async {
+    if (userId == null) return;
+
     try {
-      if (!kIsWeb) {
-        await _dbService.deleteReview(reviewId);
-        await loadReviews(movieId);
-      } else {
-        if (_movieReviews.containsKey(movieId)) {
-          _movieReviews[movieId]!.removeWhere((r) => r.id == reviewId);
-          notifyListeners();
-        }
-      }
+      await _dbService.deleteReview(reviewId, userId);
+      await loadReviews(movieId);
     } catch (e) {
       debugPrint('Error deleting review: $e');
     }

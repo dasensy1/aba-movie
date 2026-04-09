@@ -50,7 +50,8 @@ class _WatchlistScreenState extends State<WatchlistScreen>
   }
 
   Future<void> _loadWatchlist() async {
-    await context.read<WatchlistProvider>().loadWatchlist();
+    final auth = context.read<AuthProvider>();
+    await context.read<WatchlistProvider>().loadWatchlist(auth.userId);
   }
 
   @override
@@ -413,8 +414,9 @@ class _WatchlistScreenState extends State<WatchlistScreen>
   }
 
   Future<void> _handleMenuAction(String action, WatchlistMovie movie) async {
+    final auth = context.read<AuthProvider>();
     final provider = context.read<WatchlistProvider>();
-    
+
     switch (action) {
       case 'change_date':
         await _changeWatchDate(movie);
@@ -422,16 +424,17 @@ class _WatchlistScreenState extends State<WatchlistScreen>
       case 'change_status':
         final newStatus = await _showStatusChangeDialog(movie);
         if (newStatus != null) {
-          await provider.updateStatus(movie.movieId, newStatus);
+          await provider.updateStatus(movie.movieId, newStatus, auth.userId);
         }
         break;
       case 'remove':
-        await provider.removeFromWatchlist(movie.movieId);
+        await provider.removeFromWatchlist(movie.movieId, auth.userId);
         break;
     }
   }
 
   Future<void> _changeWatchDate(WatchlistMovie movie) async {
+    final auth = context.read<AuthProvider>();
     final now = DateTime.now();
     final pickedDate = await showDatePicker(
       context: context,
@@ -468,6 +471,7 @@ class _WatchlistScreenState extends State<WatchlistScreen>
       await context.read<WatchlistProvider>().updateStatus(
         movie.movieId,
         movie.status,
+        auth.userId,
         watchedDate: pickedDate,
       );
     }
@@ -621,8 +625,10 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      final auth = context.read<AuthProvider>();
                       context.read<WatchlistProvider>().incrementWatchCount(
                         movie.movieId,
+                        auth.userId,
                         watchedDate: selectedDate,
                       );
                       Navigator.pop(context);

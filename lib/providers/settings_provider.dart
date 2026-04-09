@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/providers.dart';
-import '../services/shared_prefs_service.dart';
+import 'auth_provider.dart';
+import '../repositories/user_repository.dart';
 
 /// ============================================================================
-/// SETTINGS PROVIDER
+/// SETTINGS PROVIDER — Версия 2 (user-scoped из БД)
 /// ============================================================================
-/// Провайдер для управления настройками приложения
+/// Настройки темы и языка хранятся в user_settings таблице БД.
+/// Привязаны к конкретному пользователю.
 /// ============================================================================
 
 class SettingsProvider with ChangeNotifier {
-  final SharedPrefsService _prefsService = SharedPrefsService();
+  final UserRepository _userRepository = UserRepository();
 
   bool _isDarkTheme = true;
   String _language = 'ru';
@@ -21,35 +22,44 @@ class SettingsProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   /// Инициализация настроек
-  Future<void> initialize() async {
+  Future<void> initialize(int? userId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      await _prefsService.init();
-      _isDarkTheme = await _prefsService.isDarkTheme();
-      _language = await _prefsService.getLanguage();
+      if (userId != null) {
+        final settings = await _userRepository.getUserSettings(userId);
+        if (settings != null) {
+          _isDarkTheme = (settings['dark_theme'] ?? 1) == 1;
+          _language = settings['language'] ?? 'ru';
+        }
+      }
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      debugPrint('Settings initialization error: $e');
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Переключить тему
-  Future<void> toggleTheme(bool isDark) async {
+  /// Переключить тему (сохранить в БД для пользователя)
+  Future<void> toggleTheme(bool isDark, int? userId) async {
     _isDarkTheme = isDark;
-    await _prefsService.setDarkTheme(isDark);
+    if (userId != null) {
+      await _userRepository.updateUserSettings(userId, darkTheme: isDark);
+    }
     notifyListeners();
   }
 
-  /// Установить язык
-  Future<void> setLanguage(String languageCode) async {
+  /// Установить язык (сохранить в БД для пользователя)
+  Future<void> setLanguage(String languageCode, int? userId) async {
     _language = languageCode;
-    await _prefsService.setLanguage(languageCode);
+    if (userId != null) {
+      await _userRepository.updateUserSettings(userId, language: languageCode);
+    }
     notifyListeners();
-    
+
     // Принудительно обновить UI
     WidgetsBinding.instance.addPostFrameCallback((_) {
       notifyListeners();
@@ -89,8 +99,10 @@ class SettingsProvider with ChangeNotifier {
   }
 
   /// Сбросить настройки к умолчанию
-  Future<void> resetToDefaults() async {
-    await _prefsService.clearAll();
+  Future<void> resetToDefaults(int? userId) async {
+    if (userId != null) {
+      await _userRepository.updateUserSettings(userId, darkTheme: true, language: 'ru');
+    }
     _isDarkTheme = true;
     _language = 'ru';
     notifyListeners();

@@ -480,7 +480,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   return MovieCard(
                     movie: movie,
                     isFavorite: isFav,
-                    onFavoriteTap: () => favorites.toggleFavorite(movie),
+                    onFavoriteTap: () {
+                      final auth = context.read<AuthProvider>();
+                      favorites.toggleFavorite(movie, auth.userId);
+                    },
                     onTap: () {
                       Navigator.push(
                         context,

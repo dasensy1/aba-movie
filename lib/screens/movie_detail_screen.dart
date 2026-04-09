@@ -81,8 +81,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   }
 
   Future<void> _toggleFavorite() async {
+    final auth = context.read<AuthProvider>();
     final provider = context.read<FavoritesProvider>();
-    final added = await provider.toggleFavorite(_currentMovie);
+    final added = await provider.toggleFavorite(_currentMovie, auth.userId);
 
     if (mounted) {
       setState(() {
@@ -92,10 +93,11 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   }
 
   Future<void> _toggleWatchlist() async {
+    final auth = context.read<AuthProvider>();
     final provider = context.read<WatchlistProvider>();
 
     if (_isInWatchlist) {
-      await provider.removeFromWatchlist(_currentMovie.id);
+      await provider.removeFromWatchlist(_currentMovie.id, auth.userId);
       setState(() {
         _isInWatchlist = false;
         _watchCount = 0;
@@ -104,15 +106,16 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       final result = await _showStatusSelection();
       if (result != null) {
         final (status, watchedDate) = result;
-        await provider.addToWatchlist(_currentMovie, status: status, watchedDate: watchedDate);
+        await provider.addToWatchlist(_currentMovie, auth.userId, status: status, watchedDate: watchedDate);
         _checkStatuses();
       }
     }
   }
 
   Future<void> _incrementCount() async {
+    final auth = context.read<AuthProvider>();
     final provider = context.read<WatchlistProvider>();
-    await provider.incrementWatchCount(_currentMovie.id);
+    await provider.incrementWatchCount(_currentMovie.id, auth.userId);
     _checkStatuses();
     
     if (mounted) {
@@ -435,8 +438,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         movieId: movie.id,
         initialStatus: _watchStatus,
         isInWatchlist: _isInWatchlist,
-        onStatusChanged: (s) {
-          context.read<WatchlistProvider>().updateStatus(movie.id, s);
+        onStatusChanged: (s) async {
+          final auth = context.read<AuthProvider>();
+          await context.read<WatchlistProvider>().updateStatus(movie.id, s, auth.userId);
           _checkStatuses();
         },
       ),

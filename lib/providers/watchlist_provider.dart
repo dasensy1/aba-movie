@@ -1,5 +1,8 @@
 /// ============================================================================
-/// WATCHLIST PROVIDER
+/// WATCHLIST PROVIDER — Версия 2 (user-scoped)
+/// ============================================================================
+/// Трекинг фильмов со статусами, оценками, заметками, датами просмотра.
+/// Данные привязаны к текущему пользователю через AuthProvider.userId.
 /// ============================================================================
 
 import 'package:flutter/foundation.dart';
@@ -34,15 +37,26 @@ class WatchlistProvider with ChangeNotifier {
   int get watchedCount => _watched.length;
   int get droppedCount => _dropped.length;
 
-  Future<void> loadWatchlist() async {
+  /// Загрузить watchlist текущего пользователя
+  Future<void> loadWatchlist(int? userId) async {
+    if (userId == null) {
+      _watchlist = [];
+      _wantToWatch = [];
+      _watching = [];
+      _watched = [];
+      _dropped = [];
+      _activityLog = [];
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
+
     try {
-      if (!kIsWeb) {
-        _watchlist = await _dbService.getWatchlist();
-      }
+      _watchlist = await _dbService.getWatchlist(userId);
       _categorizeMovies();
-      await loadActivityLog();
+      await loadActivityLog(userId);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -52,19 +66,21 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadActivityLog() async {
-    try {
-      final db = await _dbService.database;
-      final result = await db.rawQuery('''
-        SELECT wl.title, wl.poster_path, log.status, log.watch_date
-        FROM watch_log log
-        JOIN watchlist wl ON log.movie_id = wl.movie_id
-        ORDER BY log.watch_date DESC
-        LIMIT 20
-      ''');
-      _activityLog = result;
+  /// Загрузить лог активности пользователя
+  Future<void> loadActivityLog(int? userId) async {
+    if (userId == null) {
+      _activityLog = [];
       notifyListeners();
-    } catch (e) {}
+      return;
+    }
+
+    try {
+      _activityLog = await _dbService.getActivityLog(userId, limit: 20);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading activity log: $e');
+      _activityLog = [];
+    }
   }
 
   void _categorizeMovies() {
@@ -81,10 +97,12 @@ class WatchlistProvider with ChangeNotifier {
   }
 
   /// Добавить фильм в watchlist с опциональной датой просмотра
-  Future<bool> addToWatchlist(dynamic movie, {WatchStatus status = WatchStatus.wantToWatch, DateTime? watchedDate}) async {
+  Future<bool> addToWatchlist(dynamic movie, int? userId, {WatchStatus status = WatchStatus.wantToWatch, DateTime? watchedDate}) async {
+    if (userId == null) return false;
+
     try {
       if (isInWatchlist(movie.id)) return false;
-      
+
       // Проверка на будущую дату
       if (watchedDate != null && watchedDate.isAfter(DateTime.now())) {
         _error = 'Нельзя установить будущую дату просмотра';
@@ -96,35 +114,28 @@ class WatchlistProvider with ChangeNotifier {
         watchCount: status == WatchStatus.watched ? 1 : 0,
       );
 
-      if (!kIsWeb) {
-        await _dbService.addToWatchlist(watchlistMovie);
-      }
+      await _dbService.addToWatchlist(watchlistMovie, userId);
 
       _watchlist.insert(0, watchlistMovie);
       _categorizeMovies();
-      await loadActivityLog();
+      await loadActivityLog(userId);
       notifyListeners();
       return true;
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');
-      // Для Веба все равно добавляем в память
-      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status).copyWith(
-        watchedDate: watchedDate,
-        watchCount: status == WatchStatus.watched ? 1 : 0,
-      );
-      _watchlist.insert(0, watchlistMovie);
-      _categorizeMovies();
       notifyListeners();
-      return true;
+      return false;
     }
   }
 
   /// Обновить статус фильма с опциональной датой просмотра
-  Future<bool> updateStatus(int movieId, WatchStatus status, {DateTime? watchedDate}) async {
+  Future<bool> updateStatus(int movieId, WatchStatus status, int? userId, {DateTime? watchedDate}) async {
+    if (userId == null) return false;
+
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
-      
+
       final movie = _watchlist[index];
       DateTime? finalWatchedDate = watchedDate ?? movie.watchedDate;
 
@@ -140,10 +151,8 @@ class WatchlistProvider with ChangeNotifier {
       }
 
       final now = DateTime.now();
-      
-      if (!kIsWeb) {
-        await _dbService.updateWatchlistStatus(movieId, status, finalWatchedDate, addedDate: now);
-      }
+
+      await _dbService.updateWatchlistStatus(movieId, status, userId, watchedDate: finalWatchedDate, addedDate: now);
 
       _watchlist[index] = movie.copyWith(
         status: status,
@@ -151,9 +160,9 @@ class WatchlistProvider with ChangeNotifier {
         watchedDate: finalWatchedDate,
         watchCount: status == WatchStatus.watched ? (movie.watchCount > 0 ? movie.watchCount : 1) : movie.watchCount,
       );
-      
+
       _categorizeMovies();
-      await loadActivityLog();
+      await loadActivityLog(userId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -162,7 +171,9 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateRating(int movieId, double rating) async {
+  Future<bool> updateRating(int movieId, double rating, int? userId) async {
+    if (userId == null) return false;
+
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
@@ -182,9 +193,7 @@ class WatchlistProvider with ChangeNotifier {
         addedDate: movie.addedDate,
       );
 
-      if (!kIsWeb) {
-        await _dbService.updateWatchlistRating(movieId, rating);
-      }
+      await _dbService.updateWatchlistRating(movieId, rating, userId);
 
       _watchlist[index] = updatedMovie;
       notifyListeners();
@@ -194,7 +203,9 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateNotes(int movieId, String notes) async {
+  Future<bool> updateNotes(int movieId, String notes, int? userId) async {
+    if (userId == null) return false;
+
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
@@ -214,9 +225,7 @@ class WatchlistProvider with ChangeNotifier {
         addedDate: movie.addedDate,
       );
 
-      if (!kIsWeb) {
-        await _dbService.updateWatchlistNotes(movieId, notes);
-      }
+      await _dbService.updateWatchlistNotes(movieId, notes, userId);
 
       _watchlist[index] = updatedMovie;
       notifyListeners();
@@ -226,11 +235,13 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> incrementWatchCount(int movieId, {DateTime? watchedDate}) async {
+  Future<bool> incrementWatchCount(int movieId, int? userId, {DateTime? watchedDate}) async {
+    if (userId == null) return false;
+
     try {
       final index = _watchlist.indexWhere((m) => m.movieId == movieId);
       if (index == -1) return false;
-      
+
       final movie = _watchlist[index];
       final now = watchedDate ?? DateTime.now();
 
@@ -240,19 +251,17 @@ class WatchlistProvider with ChangeNotifier {
         return false;
       }
 
-      if (!kIsWeb) {
-        await _dbService.addWatchLogEntry(movieId, now);
-      }
-      
+      await _dbService.addWatchLogEntry(movieId, now, userId);
+
       _watchlist[index] = movie.copyWith(
         watchCount: movie.watchCount + 1,
         status: WatchStatus.watched,
         watchedDate: now,
         addedDate: now,
       );
-      
+
       _categorizeMovies();
-      await loadActivityLog();
+      await loadActivityLog(userId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -260,18 +269,37 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> removeFromWatchlist(int movieId) async {
+  Future<bool> removeFromWatchlist(int movieId, int? userId) async {
+    if (userId == null) return false;
+
     try {
-      if (!kIsWeb) {
-        await _dbService.removeFromWatchlist(movieId);
-      }
+      await _dbService.removeFromWatchlist(movieId, userId);
       _watchlist.removeWhere((m) => m.movieId == movieId);
       _categorizeMovies();
-      await loadActivityLog();
+      await loadActivityLog(userId);
       notifyListeners();
       return true;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// Удалить весь watchlist пользователя
+  Future<void> clearWatchlist(int? userId) async {
+    if (userId == null) return;
+
+    try {
+      await _dbService.clearWatchlist(userId);
+      _watchlist = [];
+      _wantToWatch = [];
+      _watching = [];
+      _watched = [];
+      _dropped = [];
+      _activityLog = [];
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
     }
   }
 

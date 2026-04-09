@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
+import '../../providers/auth_provider.dart';
 
 /// ============================================================================
 /// SETTINGS SCREEN
@@ -37,7 +38,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       subtitle: 'Использовать тёмное оформление',
                       value: settings.isDarkTheme,
                       onChanged: (value) {
-                        settings.toggleTheme(value);
+                        final auth = context.read<AuthProvider>();
+                        settings.toggleTheme(value, auth.userId);
                       },
                     ),
                   ],
@@ -255,7 +257,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ? const Icon(Icons.check, color: Color(0xFF7C4DFF))
                     : null,
                 onTap: () {
-                  settings.setLanguage(lang['code']!);
+                  final auth = context.read<AuthProvider>();
+                  settings.setLanguage(lang['code']!, auth.userId);
                   Navigator.pop(context);
                 },
               );
@@ -348,7 +351,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              settings.resetToDefaults();
+              final auth = context.read<AuthProvider>();
+              settings.resetToDefaults(auth.userId);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Настройки сброшены'),

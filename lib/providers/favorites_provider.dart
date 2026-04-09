@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/local_database_service.dart';
+import 'auth_provider.dart';
 
 /// ============================================================================
-/// FAVORITES PROVIDER
+/// FAVORITES PROVIDER — Версия 2 (user-scoped)
 /// ============================================================================
-/// Провайдер для управления избранными фильмами
+/// Провайдер для управления избранными фильмами.
+/// Данные привязаны к текущему пользователю через AuthProvider.userId.
 /// ============================================================================
 
 class FavoritesProvider with ChangeNotifier {
@@ -21,13 +23,20 @@ class FavoritesProvider with ChangeNotifier {
   String? get error => _error;
   int get count => _favorites.length;
 
-  /// Загрузить избранные фильмы
-  Future<void> loadFavorites() async {
+  /// Загрузить избранные фильмы текущего пользователя
+  Future<void> loadFavorites(int? userId) async {
+    if (userId == null) {
+      _favorites = [];
+      _favoriteIds = {};
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
     try {
-      _favorites = await _dbService.getFavorites();
+      _favorites = await _dbService.getFavorites(userId);
       _favoriteIds = _favorites.map((m) => m.id).toSet();
       _isLoading = false;
       notifyListeners();
@@ -44,18 +53,18 @@ class FavoritesProvider with ChangeNotifier {
   }
 
   /// Добавить/удалить из избранного
-  Future<bool> toggleFavorite(Movie movie) async {
+  Future<bool> toggleFavorite(Movie movie, int? userId) async {
+    if (userId == null) return false;
+
     try {
       final isCurrentlyFavorite = _favoriteIds.contains(movie.id);
 
       if (isCurrentlyFavorite) {
-        // Удаляем
-        await _dbService.removeFromFavorites(movie.id);
+        await _dbService.removeFromFavorites(movie.id, userId);
         _favorites.removeWhere((m) => m.id == movie.id);
         _favoriteIds.remove(movie.id);
       } else {
-        // Добавляем
-        await _dbService.addToFavorites(movie);
+        await _dbService.addToFavorites(movie, userId);
         _favorites.insert(0, movie);
         _favoriteIds.add(movie.id);
       }
@@ -70,13 +79,13 @@ class FavoritesProvider with ChangeNotifier {
   }
 
   /// Добавить в избранное
-  Future<bool> addToFavorites(Movie movie) async {
-    try {
-      if (_favoriteIds.contains(movie.id)) {
-        return false; // Уже в избранном
-      }
+  Future<bool> addToFavorites(Movie movie, int? userId) async {
+    if (userId == null) return false;
 
-      await _dbService.addToFavorites(movie);
+    try {
+      if (_favoriteIds.contains(movie.id)) return false;
+
+      await _dbService.addToFavorites(movie, userId);
       _favorites.insert(0, movie);
       _favoriteIds.add(movie.id);
       notifyListeners();
@@ -89,9 +98,11 @@ class FavoritesProvider with ChangeNotifier {
   }
 
   /// Удалить из избранного
-  Future<bool> removeFromFavorites(int movieId) async {
+  Future<bool> removeFromFavorites(int movieId, int? userId) async {
+    if (userId == null) return false;
+
     try {
-      final removed = await _dbService.removeFromFavorites(movieId);
+      final removed = await _dbService.removeFromFavorites(movieId, userId);
       if (removed) {
         _favorites.removeWhere((m) => m.id == movieId);
         _favoriteIds.remove(movieId);
@@ -105,10 +116,12 @@ class FavoritesProvider with ChangeNotifier {
     }
   }
 
-  /// Очистить все избранное
-  Future<void> clearAll() async {
+  /// Очистить ВСЁ избранное (только избранное, не все данные!)
+  Future<void> clearAll(int? userId) async {
+    if (userId == null) return;
+
     try {
-      await _dbService.clearAll();
+      await _dbService.clearFavorites(userId);
       _favorites = [];
       _favoriteIds = {};
       notifyListeners();

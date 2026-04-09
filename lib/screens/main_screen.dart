@@ -48,23 +48,37 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _loadInitialData() async {
+    final auth = context.read<AuthProvider>();
     final moviesProvider = context.read<MoviesProvider>();
     final favoritesProvider = context.read<FavoritesProvider>();
     final settingsProvider = context.read<SettingsProvider>();
     final watchlistProvider = context.read<WatchlistProvider>();
 
-    // Инициализация настроек
-    await settingsProvider.initialize();
+    // Инициализация настроек с userId
+    await settingsProvider.initialize(auth.userId);
 
     // Загрузка трендов
     moviesProvider.loadTrendingMovies();
     moviesProvider.loadGenres();
 
-    // Загрузка избранных
-    favoritesProvider.loadFavorites();
-    
-    // Загрузка треккинга
-    watchlistProvider.loadWatchlist();
+    // Загрузка избранных с userId
+    favoritesProvider.loadFavorites(auth.userId);
+
+    // Загрузка треккинга с userId
+    watchlistProvider.loadWatchlist(auth.userId);
+  }
+
+  /// Перезагрузка данных при смене пользователя
+  Future<void> _reloadDataForUser(int? userId) async {
+    if (userId == null) return;
+
+    final favoritesProvider = context.read<FavoritesProvider>();
+    final settingsProvider = context.read<SettingsProvider>();
+    final watchlistProvider = context.read<WatchlistProvider>();
+
+    await settingsProvider.initialize(userId);
+    await favoritesProvider.loadFavorites(userId);
+    await watchlistProvider.loadWatchlist(userId);
   }
 
   @override
@@ -72,7 +86,8 @@ class _MainScreenState extends State<MainScreen> {
     super.didChangeDependencies();
     // Обновляем треккинг при переключении на вкладку трекинга (индекс 3) или профиля (индекс 5)
     if (_currentIndex == 3 || _currentIndex == 5) {
-      context.read<WatchlistProvider>().loadWatchlist();
+      final auth = context.read<AuthProvider>();
+      context.read<WatchlistProvider>().loadWatchlist(auth.userId);
     }
   }
 

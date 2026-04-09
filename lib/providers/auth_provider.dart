@@ -1,25 +1,33 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
-import '../services/services.dart';
+import '../repositories/user_repository.dart';
 
 /// ============================================================================
-/// AUTH PROVIDER (ЛОКАЛЬНАЯ АВТОРИЗАЦИЯ)
+/// AUTH PROVIDER (ЛОКАЛЬНАЯ АВТОРИЗАЦИЯ) — Версия 2 (БД)
 /// ============================================================================
-/// Провайдер для управления состоянием аутентификации
-/// Работает локально без Firebase
+/// Провайдер для управления состоянием аутентификации.
+/// Хранит пользователей в SQLite через UserRepository.
+/// В SharedPreferences сохраняет только session_user_id для восстановления сессии.
 /// ============================================================================
 
 class AuthProvider with ChangeNotifier {
-  final SharedPrefsService _prefsService = SharedPrefsService();
+  final UserRepository _userRepository = UserRepository();
 
-  AppUser? _user;
+  LocalUser? _localUser; // Реальный пользователь из БД
+  AppUser? _user; // AppUser для совместимости с UI
   bool _isLoading = false;
   String? _error;
 
+  LocalUser? get localUser => _localUser;
   AppUser? get user => _user;
+  int? get userId => _localUser?.id;
   bool get isLoading => _isLoading;
   bool get isSignedIn => _user != null;
   String? get error => _error;
+
+  /// Ключ для хранения ID сессии в SharedPreferences
+  static const _sessionUserIdKey = 'session_user_id';
 
   /// Инициализация при старте приложения
   Future<void> initialize() async {
@@ -27,20 +35,18 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      await _prefsService.init();
-      
-      // Проверяем, есть ли сохранённый пользователь
-      final savedEmail = await _prefsService.getString('saved_user_email');
-      final savedName = await _prefsService.getString('saved_user_name');
-      
-      if (savedEmail != null && savedEmail.isNotEmpty) {
-        _user = AppUser(
-          uid: 'local_user_001',
-          email: savedEmail,
-          displayName: savedName,
-          createdAt: DateTime.now(),
-          isAnonymous: false,
-        );
+      // Читаем session_user_id из SharedPreferences (единственное, что там храним)
+      final prefs = await SharedPreferences.getInstance();
+      final sessionUserId = prefs.getInt(_sessionUserIdKey);
+
+      if (sessionUserId != null) {
+        _localUser = await _userRepository.getUserById(sessionUserId);
+        if (_localUser != null) {
+          _user = _localUser!.toAppUser();
+        } else {
+          // Пользователь удалён — очищаем сессию
+          await prefs.remove(_sessionUserIdKey);
+        }
       }
     } catch (e) {
       debugPrint('Ошибка инициализации auth: $e');
@@ -50,7 +56,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Вход (локальный)
+  /// Вход (локальный, через БД)
   Future<bool> login({
     required String email,
     required String password,
@@ -62,7 +68,6 @@ class AuthProvider with ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 800)); // Имитация задержки
 
     try {
-      // Простая валидация
       if (email.isEmpty || password.isEmpty) {
         _error = 'Введите email и пароль';
         _isLoading = false;
@@ -77,31 +82,25 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
 
-      // Создаём локального пользователя
-      _user = AppUser(
-        uid: 'local_user_${DateTime.now().millisecondsSinceEpoch}',
-        email: email,
-        displayName: email.split('@').first,
-        createdAt: DateTime.now(),
-        isAnonymous: false,
-      );
+      _localUser = await _userRepository.login(email: email, password: password);
+      _user = _localUser!.toAppUser();
 
-      // Сохраняем данные
-      await _prefsService.setString('saved_user_email', email);
-      await _prefsService.setString('saved_user_name', _user!.displayName ?? '');
+      // Сохраняем сессию
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_sessionUserIdKey, _localUser!.id!);
 
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
-      _error = 'Ошибка входа: $e';
+      _error = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;
     }
   }
 
-  /// Регистрация (локальная)
+  /// Регистрация (локальная, через БД)
   Future<bool> register({
     required String email,
     required String password,
@@ -135,24 +134,22 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
 
-      // Создаём локального пользователя
-      _user = AppUser(
-        uid: 'local_user_${DateTime.now().millisecondsSinceEpoch}',
+      _localUser = await _userRepository.register(
         email: email,
-        displayName: displayName ?? email.split('@').first,
-        createdAt: DateTime.now(),
-        isAnonymous: false,
+        password: password,
+        displayName: displayName,
       );
+      _user = _localUser!.toAppUser();
 
-      // Сохраняем данные
-      await _prefsService.setString('saved_user_email', email);
-      await _prefsService.setString('saved_user_name', _user!.displayName ?? '');
+      // Сохраняем сессию
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_sessionUserIdKey, _localUser!.id!);
 
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
-      _error = 'Ошибка регистрации: $e';
+      _error = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -162,8 +159,11 @@ class AuthProvider with ChangeNotifier {
   /// Выход
   Future<void> logout() async {
     try {
-      await _prefsService.remove('saved_user_email');
-      await _prefsService.remove('saved_user_name');
+      // Очищаем сессию
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_sessionUserIdKey);
+
+      _localUser = null;
       _user = null;
       notifyListeners();
     } catch (e) {

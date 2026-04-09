@@ -3,9 +3,22 @@ import 'package:path/path.dart';
 import '../models/models.dart';
 
 /// ============================================================================
-/// LOCAL DATABASE SERVICE (SQFLITE)
+/// LOCAL DATABASE SERVICE (SQFLITE) — Версия 6
 /// ============================================================================
-/// Сервис для локального хранения данных (избранные фильмы, настройки, обзоры)
+/// Переработанная схема БД:
+/// - users: таблица локальных пользователей с password_hash
+/// - user_settings: настройки привязанные к пользователю
+/// - favorites: избранное с user_id
+/// - watchlist: список просмотра с user_id
+/// - watch_log: лог просмотров с user_id
+/// - reviews: обзоры с user_id
+/// - settings: общие (не user-scoped) настройки приложения
+/// - history: история просмотров (legacy)
+///
+/// Все user-scoped таблицы имеют:
+/// - FOREIGN KEY на users(id)
+/// - INDEX по user_id
+/// - UNIQUE(user_id, movie_id) где уместно
 /// ============================================================================
 
 class LocalDatabaseService {
@@ -27,55 +40,68 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 5, // Увеличено для поддержки watched_date
+      version: 6, // Новая схема с user-scoped данными
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    // Включаем поддержку FOREIGN KEY
+    await db.execute('PRAGMA foreign_keys = ON');
+
+    // ==================== USERS ====================
+    await db.execute('''
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        display_name TEXT,
+        photo_url TEXT,
+        created_at TEXT NOT NULL,
+        is_anonymous INTEGER DEFAULT 0
+      )
+    ''');
+
+    // ==================== USER SETTINGS ====================
+    await db.execute('''
+      CREATE TABLE user_settings (
+        user_id INTEGER PRIMARY KEY,
+        dark_theme INTEGER DEFAULT 1,
+        language TEXT DEFAULT 'ru',
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // ==================== FAVORITES ====================
     await db.execute('''
       CREATE TABLE favorites (
-        id INTEGER PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        movie_id INTEGER NOT NULL,
         title TEXT NOT NULL,
         overview TEXT,
-        posterPath TEXT,
-        backdropPath TEXT,
-        voteAverage REAL,
-        voteCount INTEGER,
-        releaseDate TEXT,
-        genreIds TEXT,
+        poster_path TEXT,
+        backdrop_path TEXT,
+        vote_average REAL,
+        vote_count INTEGER,
+        release_date TEXT,
+        genre_ids TEXT,
         popularity REAL,
-        addedAt TEXT NOT NULL
+        added_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, movie_id)
       )
     ''');
 
-    await db.execute('''
-      CREATE TABLE history (
-        id INTEGER PRIMARY KEY,
-        title TEXT NOT NULL,
-        overview TEXT,
-        posterPath TEXT,
-        backdropPath TEXT,
-        voteAverage REAL,
-        voteCount INTEGER,
-        releaseDate TEXT,
-        genreIds TEXT,
-        popularity REAL,
-        viewedAt TEXT NOT NULL
-      )
-    ''');
+    await db.execute('CREATE INDEX idx_favorites_user ON favorites(user_id)');
+    await db.execute('CREATE INDEX idx_favorites_movie ON favorites(movie_id)');
 
-    await db.execute('''
-      CREATE TABLE settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    ''');
-
+    // ==================== WATCHLIST ====================
     await db.execute('''
       CREATE TABLE watchlist (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
         movie_id INTEGER NOT NULL,
         imdb_id TEXT,
         title TEXT NOT NULL,
@@ -86,218 +112,715 @@ class LocalDatabaseService {
         watched_date TEXT,
         added_date TEXT NOT NULL,
         watch_count INTEGER DEFAULT 0,
-        UNIQUE(movie_id)
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, movie_id)
       )
     ''');
 
+    await db.execute('CREATE INDEX idx_watchlist_user ON watchlist(user_id)');
+    await db.execute('CREATE INDEX idx_watchlist_movie ON watchlist(movie_id)');
+    await db.execute('CREATE INDEX idx_watchlist_status ON watchlist(status)');
+
+    // ==================== WATCH LOG ====================
     await db.execute('''
       CREATE TABLE watch_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
         movie_id INTEGER NOT NULL,
         status TEXT NOT NULL,
-        watch_date TEXT NOT NULL
+        watch_date TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
 
-    // Таблица обзоров
+    await db.execute('CREATE INDEX idx_watch_log_user ON watch_log(user_id)');
+    await db.execute('CREATE INDEX idx_watch_log_date ON watch_log(watch_date DESC)');
+
+    // ==================== REVIEWS ====================
     await db.execute('''
       CREATE TABLE reviews (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        movieId INTEGER NOT NULL,
-        userId TEXT NOT NULL,
-        userName TEXT NOT NULL,
-        userPhotoUrl TEXT,
+        user_id INTEGER NOT NULL,
+        movie_id INTEGER NOT NULL,
+        user_name TEXT NOT NULL,
         rating REAL NOT NULL,
         comment TEXT NOT NULL,
-        createdAt TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('CREATE INDEX idx_reviews_user ON reviews(user_id)');
+    await db.execute('CREATE INDEX idx_reviews_movie ON reviews(movie_id)');
+
+    // ==================== SETTINGS (общие) ====================
+    await db.execute('''
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+
+    // ==================== HISTORY (legacy) ====================
+    await db.execute('''
+      CREATE TABLE history (
+        id INTEGER PRIMARY KEY,
+        title TEXT NOT NULL,
+        overview TEXT,
+        poster_path TEXT,
+        backdrop_path TEXT,
+        vote_average REAL,
+        vote_count INTEGER,
+        release_date TEXT,
+        genre_ids TEXT,
+        popularity REAL,
+        viewed_at TEXT NOT NULL
       )
     ''');
   }
 
+  // ==================== MIGRATIONS ====================
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('ALTER TABLE watchlist ADD COLUMN watch_count INTEGER DEFAULT 0');
+    // Миграция с v5 на v6 — полная перестройка схемы
+    if (oldVersion < 6) {
+      await _migrateToV6(db);
     }
-    if (oldVersion < 3) {
-      await db.execute('CREATE TABLE watch_log (id INTEGER PRIMARY KEY AUTOINCREMENT, movie_id INTEGER NOT NULL, watch_date TEXT NOT NULL)');
+  }
+
+  /// Миграция с v5 на v6
+  /// Стратегия: создаём новые таблицы, копируем данные, удаляем старые
+  Future<void> _migrateToV6(Database db) async {
+    await db.execute('PRAGMA foreign_keys = OFF');
+
+    // 1. Создаём users
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        display_name TEXT,
+        photo_url TEXT,
+        created_at TEXT NOT NULL,
+        is_anonymous INTEGER DEFAULT 0
+      )
+    ''');
+
+    // 2. Создаём user_settings
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_settings (
+        user_id INTEGER PRIMARY KEY,
+        dark_theme INTEGER DEFAULT 1,
+        language TEXT DEFAULT 'ru',
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 3. Создаём новые favorites с user_id
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS favorites_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL DEFAULT 1,
+        movie_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        overview TEXT,
+        poster_path TEXT,
+        backdrop_path TEXT,
+        vote_average REAL,
+        vote_count INTEGER,
+        release_date TEXT,
+        genre_ids TEXT,
+        popularity REAL,
+        added_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, movie_id)
+      )
+    ''');
+
+    // 4. Создаём новый watchlist с user_id
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS watchlist_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL DEFAULT 1,
+        movie_id INTEGER NOT NULL,
+        imdb_id TEXT,
+        title TEXT NOT NULL,
+        poster_path TEXT,
+        status TEXT NOT NULL,
+        user_rating REAL,
+        notes TEXT,
+        watched_date TEXT,
+        added_date TEXT NOT NULL,
+        watch_count INTEGER DEFAULT 0,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, movie_id)
+      )
+    ''');
+
+    // 5. Создаём новый watch_log с user_id
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS watch_log_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL DEFAULT 1,
+        movie_id INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        watch_date TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 6. Создаём новый reviews с user_id как INTEGER
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS reviews_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL DEFAULT 1,
+        movie_id INTEGER NOT NULL,
+        user_name TEXT NOT NULL,
+        rating REAL NOT NULL,
+        comment TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Копируем данные из старых таблиц в новые (с user_id = 1 по умолчанию)
+    // Для favorites
+    try {
+      final oldFavorites = await db.query('favorites');
+      for (final fav in oldFavorites) {
+        final newFav = Map<String, dynamic>.from(fav);
+        newFav['user_id'] = 1;
+        // Переименовываем колонки если нужно
+        if (newFav.containsKey('posterPath')) {
+          newFav['poster_path'] = newFav.remove('posterPath');
+        }
+        if (newFav.containsKey('backdropPath')) {
+          newFav['backdrop_path'] = newFav.remove('backdropPath');
+        }
+        if (newFav.containsKey('voteAverage')) {
+          newFav['vote_average'] = newFav.remove('voteAverage');
+        }
+        if (newFav.containsKey('voteCount')) {
+          newFav['vote_count'] = newFav.remove('voteCount');
+        }
+        if (newFav.containsKey('releaseDate')) {
+          newFav['release_date'] = newFav.remove('releaseDate');
+        }
+        if (newFav.containsKey('genreIds')) {
+          newFav['genre_ids'] = newFav.remove('genreIds');
+        }
+        newFav.remove('id'); // AUTOINCREMENT
+        await db.insert('favorites_new', newFav, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    } catch (e) {
+      // Старая таблица могла уже не существовать
     }
-    if (oldVersion < 4) {
-      await db.execute('ALTER TABLE watch_log ADD COLUMN status TEXT DEFAULT "watched"');
-    }
-    if (oldVersion < 5) {
-      // Добавляем watched_date если его нет (уже есть в CREATE TABLE, но для старых баз)
-      try {
-        await db.execute('ALTER TABLE watchlist ADD COLUMN watched_date TEXT');
-      } catch (e) {
-        // Колонка уже существует
+
+    // Для watchlist
+    try {
+      final oldWatchlist = await db.query('watchlist');
+      for (final wl in oldWatchlist) {
+        final newWl = Map<String, dynamic>.from(wl);
+        newWl['user_id'] = 1;
+        newWl.remove('id');
+        await db.insert('watchlist_new', newWl, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    } catch (e) {}
+
+    // Для watch_log
+    try {
+      final oldLog = await db.query('watch_log');
+      for (final log in oldLog) {
+        final newLog = Map<String, dynamic>.from(log);
+        newLog['user_id'] = 1;
+        newLog.remove('id');
+        await db.insert('watch_log_new', newLog, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    } catch (e) {}
+
+    // Для reviews
+    try {
+      final oldReviews = await db.query('reviews');
+      for (final review in oldReviews) {
+        final newReview = Map<String, dynamic>.from(review);
+        newReview['user_id'] = 1;
+        newReview.remove('id');
+        await db.insert('reviews_new', newReview, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    } catch (e) {}
+
+    // Удаляем старые таблицы
+    await db.execute('DROP TABLE IF EXISTS favorites');
+    await db.execute('DROP TABLE IF EXISTS watchlist');
+    await db.execute('DROP TABLE IF EXISTS watch_log');
+    await db.execute('DROP TABLE IF EXISTS reviews');
+
+    // Переименовываем новые
+    await db.execute('ALTER TABLE favorites_new RENAME TO favorites');
+    await db.execute('ALTER TABLE watchlist_new RENAME TO watchlist');
+    await db.execute('ALTER TABLE watch_log_new RENAME TO watch_log');
+    await db.execute('ALTER TABLE reviews_new RENAME TO reviews');
+
+    // Создаём индексы
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_movie ON favorites(movie_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watchlist_movie ON watchlist(movie_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watchlist_status ON watchlist(status)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_log_user ON watch_log(user_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_log_date ON watch_log(watch_date DESC)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_reviews_movie ON reviews(movie_id)');
+
+    // Переносим настройки из settings в user_settings для дефолтного пользователя
+    try {
+      final settings = await db.query('settings');
+      int darkTheme = 1;
+      String language = 'ru';
+      for (final s in settings) {
+        if (s['key'] == 'dark_theme') {
+          darkTheme = int.tryParse(s['value'].toString()) ?? 1;
+        }
+        if (s['key'] == 'language') {
+          language = s['value'].toString();
+        }
+      }
+      await db.insert('user_settings', {
+        'user_id': 1,
+        'dark_theme': darkTheme,
+        'language': language,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    } catch (e) {}
+
+    await db.execute('PRAGMA foreign_keys = ON');
+  }
+
+  // ==================== USERS ====================
+
+  /// Создать нового пользователя
+  Future<int> createUser(LocalUser user) async {
+    final db = await database;
+    return await db.insert('users', user.toMap(), conflictAlgorithm: ConflictAlgorithm.abort);
+  }
+
+  /// Найти пользователя по email
+  Future<LocalUser?> getUserByEmail(String email) async {
+    final db = await database;
+    final result = await db.query('users', where: 'email = ?', whereArgs: [email]);
+    if (result.isEmpty) return null;
+    return LocalUser.fromMap(result.first);
+  }
+
+  /// Найти пользователя по ID
+  Future<LocalUser?> getUserById(int id) async {
+    final db = await database;
+    final result = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    if (result.isEmpty) return null;
+    return LocalUser.fromMap(result.first);
+  }
+
+  /// Получить всех пользователей
+  Future<List<LocalUser>> getAllUsers() async {
+    final db = await database;
+    final maps = await db.query('users', orderBy: 'created_at DESC');
+    return maps.map((map) => LocalUser.fromMap(map)).toList();
+  }
+
+  /// Удалить пользователя (и все связанные данные — CASCADE)
+  Future<bool> deleteUser(int userId) async {
+    final db = await database;
+    final deleted = await db.delete('users', where: 'id = ?', whereArgs: [userId]);
+    return deleted > 0;
+  }
+
+  // ==================== USER SETTINGS ====================
+
+  /// Получить настройки пользователя
+  Future<Map<String, dynamic>?> getUserSettings(int userId) async {
+    final db = await database;
+    final result = await db.query('user_settings', where: 'user_id = ?', whereArgs: [userId]);
+    if (result.isEmpty) return null;
+    return result.first;
+  }
+
+  /// Создать/обновить настройки пользователя
+  Future<void> updateUserSettings(int userId, {bool? darkTheme, String? language}) async {
+    final db = await database;
+    final existing = await getUserSettings(userId);
+
+    if (existing == null) {
+      await db.insert('user_settings', {
+        'user_id': userId,
+        'dark_theme': darkTheme != null ? (darkTheme ? 1 : 0) : 1,
+        'language': language ?? 'ru',
+      });
+    } else {
+      final updates = <String, dynamic>{};
+      if (darkTheme != null) updates['dark_theme'] = darkTheme ? 1 : 0;
+      if (language != null) updates['language'] = language;
+      if (updates.isNotEmpty) {
+        await db.update('user_settings', updates, where: 'user_id = ?', whereArgs: [userId]);
       }
     }
   }
 
-  // FAVORITES
-  Future<bool> addToFavorites(Movie movie) async {
+  // ==================== FAVORITES ====================
+
+  /// Добавить в избранное (user-scoped)
+  Future<bool> addToFavorites(Movie movie, int userId) async {
     final db = await database;
-    final existing = await db.query('favorites', where: 'id = ?', whereArgs: [movie.id]);
+    final existing = await db.query(
+      'favorites',
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movie.id],
+    );
     if (existing.isNotEmpty) return false;
-    await db.insert('favorites', {...movie.toMap(), 'addedAt': DateTime.now().toIso8601String()});
+
+    final data = {
+      'user_id': userId,
+      'movie_id': movie.id,
+      'title': movie.title,
+      'overview': movie.overview,
+      'poster_path': movie.posterPath,
+      'backdrop_path': movie.backdropPath,
+      'vote_average': movie.voteAverage,
+      'vote_count': movie.voteCount,
+      'release_date': movie.releaseDate,
+      'genre_ids': movie.genreIds.join(','),
+      'popularity': movie.popularity,
+      'added_at': DateTime.now().toIso8601String(),
+    };
+    await db.insert('favorites', data, conflictAlgorithm: ConflictAlgorithm.ignore);
     return true;
   }
 
-  Future<bool> removeFromFavorites(int movieId) async {
+  /// Удалить из избранного (user-scoped)
+  Future<bool> removeFromFavorites(int movieId, int userId) async {
     final db = await database;
-    final deleted = await db.delete('favorites', where: 'id = ?', whereArgs: [movieId]);
+    final deleted = await db.delete(
+      'favorites',
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
     return deleted > 0;
   }
 
-  Future<bool> isFavorite(int movieId) async {
+  /// Проверить, есть ли в избранном (user-scoped)
+  Future<bool> isFavorite(int movieId, int userId) async {
     final db = await database;
-    final result = await db.query('favorites', where: 'id = ?', whereArgs: [movieId]);
+    final result = await db.query(
+      'favorites',
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
     return result.isNotEmpty;
   }
 
-  Future<List<Movie>> getFavorites() async {
+  /// Получить избранное пользователя
+  Future<List<Movie>> getFavorites(int userId) async {
     final db = await database;
-    final maps = await db.query('favorites', orderBy: 'addedAt DESC');
-    return maps.map((map) => Movie.fromMap(map)).toList();
+    final maps = await db.query(
+      'favorites',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'added_at DESC',
+    );
+    return maps.map((map) => _movieFromFavoriteMap(map)).toList();
   }
 
-  // WATCHLIST & LOGS
-  Future<int> addToWatchlist(WatchlistMovie movie) async {
+  /// Получить count избранного пользователя
+  Future<int> getFavoritesCount(int userId) async {
     final db = await database;
-    final id = await db.insert('watchlist', movie.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
-    await logActivity(movie.movieId, movie.status.name, movie.addedDate);
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) FROM favorites WHERE user_id = ?',
+      [userId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Удалить всё избранное пользователя
+  Future<void> clearFavorites(int userId) async {
+    final db = await database;
+    await db.delete('favorites', where: 'user_id = ?', whereArgs: [userId]);
+  }
+
+  // Преобразование Map из favorites в Movie
+  Movie _movieFromFavoriteMap(Map<String, dynamic> map) {
+    return Movie(
+      id: map['movie_id'] ?? map['id'] ?? 0,
+      title: map['title'] ?? 'Без названия',
+      overview: map['overview'],
+      posterPath: map['poster_path'],
+      backdropPath: map['backdrop_path'],
+      voteAverage: (map['vote_average'] ?? 0).toDouble(),
+      voteCount: map['vote_count'] ?? 0,
+      releaseDate: map['release_date'],
+      genreIds: map['genre_ids'] != null && map['genre_ids'].toString().isNotEmpty
+          ? (map['genre_ids'] as String).split(',').map(int.parse).toList()
+          : [],
+      popularity: (map['popularity'] ?? 0).toDouble(),
+    );
+  }
+
+  // ==================== WATCHLIST ====================
+
+  /// Добавить фильм в watchlist (user-scoped)
+  Future<int> addToWatchlist(WatchlistMovie movie, int userId) async {
+    final db = await database;
+    final data = movie.toMap();
+    data['user_id'] = userId;
+    final id = await db.insert('watchlist', data, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    if (id > 0) {
+      await logActivity(movie.movieId, movie.status.name, movie.addedDate, userId);
+    }
     return id;
   }
 
-  Future<void> updateWatchlistStatus(int movieId, WatchStatus status, DateTime? watchedDate, {DateTime? addedDate}) async {
+  /// Обновить статус в watchlist (user-scoped)
+  Future<void> updateWatchlistStatus(
+    int movieId,
+    WatchStatus status,
+    int userId, {
+    DateTime? watchedDate,
+    DateTime? addedDate,
+  }) async {
     final db = await database;
     final now = addedDate ?? DateTime.now();
-    await db.update('watchlist', {
-      'status': status.name,
-      'added_date': now.toIso8601String(),
-      if (watchedDate != null) 'watched_date': watchedDate.toIso8601String(),
-    }, where: 'movie_id = ?', whereArgs: [movieId]);
-    await logActivity(movieId, status.name, now);
+    await db.update(
+      'watchlist',
+      {
+        'status': status.name,
+        'added_date': now.toIso8601String(),
+        if (watchedDate != null) 'watched_date': watchedDate.toIso8601String(),
+      },
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
+    await logActivity(movieId, status.name, now, userId);
   }
 
-  Future<void> updateWatchlistRating(int movieId, double rating) async {
+  /// Обновить рейтинг (user-scoped)
+  Future<void> updateWatchlistRating(int movieId, double rating, int userId) async {
     final db = await database;
-    await db.update('watchlist', {'user_rating': rating}, where: 'movie_id = ?', whereArgs: [movieId]);
+    await db.update(
+      'watchlist',
+      {'user_rating': rating},
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
   }
 
-  Future<void> updateWatchlistNotes(int movieId, String notes) async {
+  /// Обновить заметки (user-scoped)
+  Future<void> updateWatchlistNotes(int movieId, String notes, int userId) async {
     final db = await database;
-    await db.update('watchlist', {'notes': notes}, where: 'movie_id = ?', whereArgs: [movieId]);
+    await db.update(
+      'watchlist',
+      {'notes': notes},
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
   }
 
-  Future<void> updateWatchlistWatchCount(int movieId, int count) async {
+  /// Обновить счётчик просмотров (user-scoped)
+  Future<void> updateWatchlistWatchCount(int movieId, int count, int userId) async {
     final db = await database;
-    await db.update('watchlist', {'watch_count': count}, where: 'movie_id = ?', whereArgs: [movieId]);
+    await db.update(
+      'watchlist',
+      {'watch_count': count},
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
   }
 
-  Future<void> addWatchLogEntry(int movieId, DateTime date) async {
-    await logActivity(movieId, "increment_watch", date);
+  /// Добавить запись в лог просмотров (user-scoped)
+  Future<void> addWatchLogEntry(int movieId, DateTime date, int userId) async {
+    await logActivity(movieId, 'increment_watch', date, userId);
     final db = await database;
-    await db.execute('UPDATE watchlist SET watch_count = watch_count + 1 WHERE movie_id = ?', [movieId]);
+    await db.execute(
+      'UPDATE watchlist SET watch_count = watch_count + 1 WHERE user_id = ? AND movie_id = ?',
+      [userId, movieId],
+    );
   }
 
-  Future<void> logActivity(int movieId, String status, DateTime date) async {
+  /// Записать активность (user-scoped)
+  Future<void> logActivity(int movieId, String status, DateTime date, int userId) async {
     final db = await database;
-    await db.insert('watch_log', {'movie_id': movieId, 'status': status, 'watch_date': date.toIso8601String()});
+    await db.insert('watch_log', {
+      'user_id': userId,
+      'movie_id': movieId,
+      'status': status,
+      'watch_date': date.toIso8601String(),
+    });
   }
 
-  Future<bool> removeFromWatchlist(int movieId) async {
+  /// Удалить из watchlist (user-scoped)
+  Future<bool> removeFromWatchlist(int movieId, int userId) async {
     final db = await database;
-    await db.delete('watch_log', where: 'movie_id = ?', whereArgs: [movieId]);
-    final deleted = await db.delete('watchlist', where: 'movie_id = ?', whereArgs: [movieId]);
+    await db.delete(
+      'watch_log',
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
+    final deleted = await db.delete(
+      'watchlist',
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
     return deleted > 0;
   }
 
-  Future<List<WatchlistMovie>> getWatchlist() async {
+  /// Получить watchlist пользователя
+  Future<List<WatchlistMovie>> getWatchlist(int userId) async {
     final db = await database;
-    final maps = await db.query('watchlist', orderBy: 'added_date DESC');
+    final maps = await db.query(
+      'watchlist',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'added_date DESC',
+    );
     return maps.map((map) => WatchlistMovie.fromMap(map)).toList();
   }
 
-  /// Получить фильмы по статусу
-  Future<List<WatchlistMovie>> getWatchlistByStatus(WatchStatus status) async {
-    try {
-      final db = await database;
-      final maps = await db.query(
-        'watchlist',
-        where: 'status = ?',
-        whereArgs: [status.name],
-        orderBy: 'added_date DESC',
-      );
-      return maps.map((map) => WatchlistMovie.fromMap(map)).toList();
-    } catch (e) {
-      return [];
-    }
+  /// Получить watchlist по статусу (user-scoped)
+  Future<List<WatchlistMovie>> getWatchlistByStatus(int userId, WatchStatus status) async {
+    final db = await database;
+    final maps = await db.query(
+      'watchlist',
+      where: 'user_id = ? AND status = ?',
+      whereArgs: [userId, status.name],
+      orderBy: 'added_date DESC',
+    );
+    return maps.map((map) => WatchlistMovie.fromMap(map)).toList();
   }
 
-  /// Получить количество фильмов по статусу
-  Future<int> getWatchlistCountByStatus(WatchStatus status) async {
-    try {
-      final db = await database;
-      return Sqflite.firstIntValue(
-        await db.rawQuery(
-          'SELECT COUNT(*) FROM watchlist WHERE status = ?',
-          [status.name],
-        ),
-      ) ?? 0;
-    } catch (e) {
-      return 0;
-    }
+  /// Получить count по статусу (user-scoped)
+  Future<int> getWatchlistCountByStatus(int userId, WatchStatus status) async {
+    final db = await database;
+    return Sqflite.firstIntValue(
+      await db.rawQuery(
+        'SELECT COUNT(*) FROM watchlist WHERE user_id = ? AND status = ?',
+        [userId, status.name],
+      ),
+    ) ?? 0;
   }
 
-  /// ============================================================================
-  /// REVIEWS (ОБЗОРЫ)
-  /// ============================================================================
-
-  /// Добавить обзор
-  Future<int> addReview(Review review) async {
-    try {
-      final db = await database;
-      return await db.insert('reviews', review.toMap());
-    } catch (e) {
-      throw Exception('Ошибка добавления обзора: $e');
-    }
+  /// Получить лог активности пользователя
+  Future<List<Map<String, dynamic>>> getActivityLog(int userId, {int limit = 20}) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
+      SELECT wl.title, wl.poster_path, log.status, log.watch_date
+      FROM watch_log log
+      JOIN watchlist wl ON log.user_id = wl.user_id AND log.movie_id = wl.movie_id
+      WHERE log.user_id = ?
+      ORDER BY log.watch_date DESC
+      LIMIT ?
+      ''',
+      [userId, limit],
+    );
   }
 
-  /// Получить обзоры фильма
+  /// Удалить весь watchlist пользователя
+  Future<void> clearWatchlist(int userId) async {
+    final db = await database;
+    await db.delete('watch_log', where: 'user_id = ?', whereArgs: [userId]);
+    await db.delete('watchlist', where: 'user_id = ?', whereArgs: [userId]);
+  }
+
+  // ==================== REVIEWS ====================
+
+  /// Добавить обзор (user-scoped)
+  Future<int> addReview(Review review, int userId) async {
+    final db = await database;
+    final data = review.toMap();
+    data['user_id'] = userId;
+    data.remove('userPhotoUrl'); // удаляем старое поле
+    return await db.insert('reviews', data);
+  }
+
+  /// Получить обзоры фильма (все пользователи)
   Future<List<Review>> getMovieReviews(int movieId) async {
-    try {
-      final db = await database;
-      final maps = await db.query(
-        'reviews',
-        where: 'movieId = ?',
-        whereArgs: [movieId],
-        orderBy: 'createdAt DESC',
-      );
-      return maps.map((map) => Review.fromMap(map)).toList();
-    } catch (e) {
-      return [];
-    }
+    final db = await database;
+    final maps = await db.query(
+      'reviews',
+      where: 'movie_id = ?',
+      whereArgs: [movieId],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((map) => _reviewFromMap(map)).toList();
   }
 
-  /// Удалить обзор
-  Future<bool> deleteReview(int reviewId) async {
-    try {
-      final db = await database;
-      final deleted = await db.delete(
-        'reviews',
-        where: 'id = ?',
-        whereArgs: [reviewId],
-      );
-      return deleted > 0;
-    } catch (e) {
-      return false;
-    }
+  /// Получить обзоры пользователя
+  Future<List<Review>> getUserReviews(int userId) async {
+    final db = await database;
+    final maps = await db.query(
+      'reviews',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((map) => _reviewFromMap(map)).toList();
   }
 
-  /// ============================================================================
-  /// ОЧИСТКА БАЗЫ
-  /// ============================================================================
+  /// Удалить обзор (user-scoped)
+  Future<bool> deleteReview(int reviewId, int userId) async {
+    final db = await database;
+    final deleted = await db.delete(
+      'reviews',
+      where: 'id = ? AND user_id = ?',
+      whereArgs: [reviewId, userId],
+    );
+    return deleted > 0;
+  }
+
+  Review _reviewFromMap(Map<String, dynamic> map) {
+    return Review(
+      id: map['id'] ?? 0,
+      movieId: map['movie_id'] ?? map['movieId'] ?? 0,
+      userId: 'local_user_${map['user_id']}',
+      userName: map['user_name'] ?? 'Аноним',
+      userPhotoUrl: '',
+      rating: (map['rating'] ?? 0.0).toDouble(),
+      comment: map['comment'] ?? '',
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'])
+          : DateTime.now(),
+    );
+  }
+
+  // ==================== SETTINGS (общие) ====================
+
+  /// Получить общую настройку
+  Future<String?> getSetting(String key) async {
+    final db = await database;
+    final result = await db.query('settings', where: 'key = ?', whereArgs: [key]);
+    if (result.isEmpty) return null;
+    return result.first['value']?.toString();
+  }
+
+  /// Установить общую настройку
+  Future<void> setSetting(String key, String value) async {
+    final db = await database;
+    await db.insert(
+      'settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // ==================== CLEAR / MAINTENANCE ====================
+
+  /// Удалить ВСЕ данные пользователя (CASCADE удалит связанные)
+  Future<void> clearUserData(int userId) async {
+    final db = await database;
+    await db.delete('favorites', where: 'user_id = ?', whereArgs: [userId]);
+    await db.delete('watchlist', where: 'user_id = ?', whereArgs: [userId]);
+    await db.delete('watch_log', where: 'user_id = ?', whereArgs: [userId]);
+    await db.delete('reviews', where: 'user_id = ?', whereArgs: [userId]);
+    await db.delete('user_settings', where: 'user_id = ?', whereArgs: [userId]);
+  }
+
+  /// Удалить ВСЕ данные (полный сброс)
   Future<void> clearAll() async {
     try {
       final db = await database;
@@ -306,6 +829,8 @@ class LocalDatabaseService {
       await db.delete('watch_log');
       await db.delete('history');
       await db.delete('reviews');
+      await db.delete('user_settings');
+      await db.delete('users');
     } catch (e) {
       throw Exception('Ошибка очистки базы: $e');
     }

@@ -49,6 +49,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
   }
 
   Future<void> _selectStatus() async {
+    final auth = context.read<AuthProvider>();
     final result = await showModalBottomSheet<(WatchStatus, DateTime?)>(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
@@ -69,6 +70,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
         await context.read<WatchlistProvider>().updateStatus(
           widget.movieId,
           selected,
+          auth.userId,
           watchedDate: selectedDate,
         );
       }
@@ -257,9 +259,11 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
                     setState(() {
                       _userRating = value;
                     });
+                    final auth = context.read<AuthProvider>();
                     context.read<WatchlistProvider>().updateRating(
                       widget.movieId,
                       value,
+                      auth.userId,
                     );
                   },
                 ),
@@ -478,4 +482,3 @@ class _StatusSelectionSheetState extends State<_StatusSelectionSheet> {
     );
   }
 }
-

@@ -28,7 +28,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   void _refreshData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<WatchlistProvider>().loadWatchlist();
+        final auth = context.read<AuthProvider>();
+        context.read<WatchlistProvider>().loadWatchlist(auth.userId);
       }
     });
   }

@@ -219,7 +219,10 @@ class _SearchScreenState extends State<SearchScreen> {
             return MovieCardVertical(
               movie: movie,
               isFavorite: isFav,
-              onFavoriteTap: () => favorites.toggleFavorite(movie),
+              onFavoriteTap: () {
+                final auth = context.read<AuthProvider>();
+                favorites.toggleFavorite(movie, auth.userId);
+              },
               onTap: () {
                 Navigator.push(
                   context,

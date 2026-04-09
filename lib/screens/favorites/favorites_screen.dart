@@ -25,7 +25,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _loadFavorites() async {
-    await context.read<FavoritesProvider>().loadFavorites();
+    final auth = context.read<AuthProvider>();
+    await context.read<FavoritesProvider>().loadFavorites(auth.userId);
   }
 
   @override
@@ -178,8 +179,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   /// Переключить избранное
   Future<void> _toggleFavorite(dynamic movie) async {
+    final auth = context.read<AuthProvider>();
     final provider = context.read<FavoritesProvider>();
-    await provider.toggleFavorite(movie);
+    await provider.toggleFavorite(movie, auth.userId);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -209,7 +211,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              context.read<FavoritesProvider>().clearAll();
+              final auth = context.read<AuthProvider>();
+              context.read<FavoritesProvider>().clearAll(auth.userId);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Избранное очищено'),

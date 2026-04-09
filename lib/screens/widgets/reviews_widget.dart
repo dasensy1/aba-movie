@@ -274,7 +274,10 @@ class _ReviewsWidgetState extends State<ReviewsWidget> {
                       createdAt: DateTime.now(),
                     );
 
-                    await context.read<ReviewsProvider>().addReview(review);
+                    await context.read<ReviewsProvider>().addReview(
+                      review,
+                      context.read<AuthProvider>().userId,
+                    );
                     if (mounted) Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
