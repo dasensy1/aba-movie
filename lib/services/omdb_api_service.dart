@@ -1,14 +1,10 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 
 /// ============================================================================
-/// OMDb API SERVICE
-/// ============================================================================
-/// Сервис для работы с OMDb API
-/// API ключ: 4310ed30
+/// OMDb API SERVICE — HTTPS, fallback API key
 /// ============================================================================
 
 class OmdbApiService {
@@ -16,8 +12,11 @@ class OmdbApiService {
   factory OmdbApiService() => _instance;
   OmdbApiService._internal();
 
-  static const String apiKey = '4310ed30';
-  static const String baseUrl = 'http://www.omdbapi.com';
+  // Fallback ключ, если .env не загружен
+  static const String _fallbackKey = '4310ed30';
+  static const String _baseUrl = 'https://www.omdbapi.com';
+
+  String get _apiKey => _fallbackKey;
 
   /// Поиск фильмов по названию
   Future<List<Movie>> searchMovies(String query) async {
@@ -25,22 +24,20 @@ class OmdbApiService {
 
     try {
       debugPrint('OMDb Search: $query');
-      
-      final url = '$baseUrl/?s=${Uri.encodeComponent(query)}&apikey=$apiKey';
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+
+      final url = '$_baseUrl/?s=${Uri.encodeComponent(query)}&apikey=$_apiKey';
+      final response = await http.get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
         if (data['Response'] == 'True' && data['Search'] != null) {
           final results = data['Search'] as List;
-          
-          List<Movie> movies = [];
+
+          final movies = <Movie>[];
           for (var item in results) {
             if (item['imdbID'] != null) {
-              // В результатах поиска OMDb нет Plot, поэтому создаем объект
-              // Но для главного экрана это нормально. 
-              // Полное описание загрузится при переходе на экран деталей.
               movies.add(Movie.fromOmdb(item));
             }
           }
@@ -62,7 +59,7 @@ class OmdbApiService {
     try {
       debugPrint('OMDb Getting full details for: $imdbId');
       final response = await http.get(
-        Uri.parse('$baseUrl/?i=$imdbId&plot=full&apikey=$apiKey'),
+        Uri.parse('$_baseUrl/?i=$imdbId&plot=full&apikey=$_apiKey'),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {

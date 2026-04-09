@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
-import '../../models/models.dart';
 import '../auth/login_screen.dart';
 
 /// ============================================================================
@@ -11,7 +10,7 @@ import '../auth/login_screen.dart';
 /// ============================================================================
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -125,7 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF7C4DFF).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF7C4DFF).withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -173,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A1A),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [

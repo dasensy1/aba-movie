@@ -40,7 +40,9 @@ class AuthProvider with ChangeNotifier {
       final sessionUserId = prefs.getInt(_sessionUserIdKey);
 
       if (sessionUserId != null) {
-        _localUser = await _userRepository.getUserById(sessionUserId);
+        // Таймаут 5 секунд — если БД не ответит, продолжаем без пользователя
+        _localUser = await _userRepository.getUserById(sessionUserId)
+            .timeout(const Duration(seconds: 5));
         if (_localUser != null) {
           _user = _localUser!.toAppUser();
         } else {
@@ -50,6 +52,7 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Ошибка инициализации auth: $e');
+      // Не блокируем приложение — продолжаем без сессии
     }
 
     _isLoading = false;
@@ -165,6 +168,9 @@ class AuthProvider with ChangeNotifier {
 
       _localUser = null;
       _user = null;
+
+      // Сбрасываем флаги загрузки чтобы провайдеры перезагрузили данные при следующем входе
+      // Это нужно чтобы при следующем login данные загрузились заново
       notifyListeners();
     } catch (e) {
       _error = 'Ошибка выхода: $e';

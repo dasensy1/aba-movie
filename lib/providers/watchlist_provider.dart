@@ -1,9 +1,9 @@
-/// ============================================================================
-/// WATCHLIST PROVIDER — Версия 2 (user-scoped)
-/// ============================================================================
-/// Трекинг фильмов со статусами, оценками, заметками, датами просмотра.
-/// Данные привязаны к текущему пользователю через AuthProvider.userId.
-/// ============================================================================
+// ============================================================================
+// WATCHLIST PROVIDER — Версия 2 (user-scoped)
+// ============================================================================
+// Трекинг фильмов со статусами, оценками, заметками, датами просмотра.
+// Данные привязаны к текущему пользователю через AuthProvider.userId.
+// ============================================================================
 
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
@@ -37,8 +37,15 @@ class WatchlistProvider with ChangeNotifier {
   int get watchedCount => _watched.length;
   int get droppedCount => _dropped.length;
 
+  int? _lastLoadedUserId;
+  bool _isFirstLoad = true;
+
   /// Загрузить watchlist текущего пользователя
   Future<void> loadWatchlist(int? userId) async {
+    if (userId == _lastLoadedUserId && !_isFirstLoad) return;
+    _lastLoadedUserId = userId;
+    _isFirstLoad = false;
+
     if (userId == null) {
       _watchlist = [];
       _wantToWatch = [];
@@ -305,7 +312,9 @@ class WatchlistProvider with ChangeNotifier {
 
   Map<String, dynamic> getStatistics() {
     int totalWatches = 0;
-    for (var m in _watchlist) totalWatches += m.watchCount;
+    for (var m in _watchlist) {
+      totalWatches += m.watchCount;
+    }
     final watchedMovies = _watched;
     final totalRatings = watchedMovies.where((m) => m.userRating != null).length;
     final averageRating = totalRatings > 0

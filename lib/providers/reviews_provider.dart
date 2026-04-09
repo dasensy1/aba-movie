@@ -12,7 +12,7 @@ import '../services/local_database_service.dart';
 class ReviewsProvider with ChangeNotifier {
   final LocalDatabaseService _dbService = LocalDatabaseService();
 
-  Map<int, List<Review>> _movieReviews = {};
+  final Map<int, List<Review>> _movieReviews = {};
   bool _isLoading = false;
 
   bool get isLoading => _isLoading;

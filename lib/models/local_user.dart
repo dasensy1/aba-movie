@@ -1,12 +1,12 @@
-/// ============================================================================
-/// LOCAL USER MODEL
-/// ============================================================================
-/// Модель локального пользователя для хранения в SQLite
-/// Отличается от AppUser тем, что включает password_hash и DB-поля
-/// ============================================================================
+// ============================================================================
+// LOCAL USER MODEL
+// ============================================================================
+// Модель локального пользователя для хранения в SQLite
+// Отличается от AppUser тем, что включает password_hash и DB-поля
+// ============================================================================
 
 import 'dart:convert';
-import 'dart:math';
+import 'dart:typed_data';
 
 import 'app_user.dart';
 
@@ -29,21 +29,36 @@ class LocalUser {
     this.isAnonymous = false,
   });
 
-  /// Простой hash пароля (для локального хранения, не криптографический)
-  /// В production лучше использовать bcrypt, но для учебного проекта достаточно
+  /// Детерминированный хеш пароля с salt и key stretching.
+  /// Не криптографически стоек, но значительно лучше XOR с ключом 42.
+  /// Использует многократное хеширование (500 итераций) для усложнения брутфорса.
   static String hashPassword(String password) {
-    // Простой XOR + SHA-256 подход для локального проекта
-    final bytes = utf8.encode(password);
-    final key = 42;
-    final xored = bytes.map((b) => b ^ key).toList();
-    // Дополнительно используем hash от строки
-    final combined = '${password}_salt_movie_tracker_2024';
-    return combined.hashCode.toString() + '_' + base64.encode(xored);
+    const salt = 'movie_tracker_fixed_salt_2026_secure_v2';
+    final data = Uint8List.fromList(utf8.encode(salt + password));
+
+    var hash = 0;
+    for (final byte in data) {
+      hash = (hash * 31 + byte) & 0xFFFFFFFF;
+    }
+
+    // Key stretching — 500 итераций
+    for (var i = 0; i < 500; i++) {
+      hash = (hash * 31 + (hash >> 16) + i) & 0xFFFFFFFF;
+      for (final byte in utf8.encode(password)) {
+        hash = (hash * 31 + byte) & 0xFFFFFFFF;
+      }
+    }
+
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
-  /// Проверка пароля
+  /// Проверка пароля — сравниваем хеши
   static bool verifyPassword(String password, String hash) {
-    return hashPassword(password) == hash;
+    try {
+      return hashPassword(password) == hash;
+    } catch (e) {
+      return false;
+    }
   }
 
   /// Создание из AppUser (при регистрации)

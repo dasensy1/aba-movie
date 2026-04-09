@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import '../../services/services.dart';
 import 'widgets/status_rating_widget.dart';
 import 'widgets/reviews_widget.dart';
 
@@ -16,9 +15,9 @@ class MovieDetailScreen extends StatefulWidget {
   final Movie movie;
 
   const MovieDetailScreen({
-    Key? key,
+    super.key,
     required this.movie,
-  }) : super(key: key);
+  });
 
   @override
   State<MovieDetailScreen> createState() => _MovieDetailScreenState();
@@ -30,7 +29,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   bool _isInWatchlist = false;
   WatchStatus _watchStatus = WatchStatus.wantToWatch;
   int _watchCount = 0;
-  bool _isLoadingDetails = false;
 
   @override
   void initState() {
@@ -58,25 +56,22 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     });
   }
 
-  /// Загрузка полного описания из API
+  /// Загрузка полного описания из API (через MoviesProvider, не напрямую)
   Future<void> _loadFullDetails() async {
     if (_currentMovie.overview != null && _currentMovie.overview!.length > 50) return;
     if (_currentMovie.imdbId == null) return;
 
-    setState(() => _isLoadingDetails = true);
-
     try {
-      final apiService = OmdbApiService();
-      final fullMovie = await apiService.getMovieDetails(_currentMovie.imdbId!);
+      final moviesProvider = context.read<MoviesProvider>();
+      final fullMovie = await moviesProvider.getMovieDetails(_currentMovie.imdbId!);
 
       if (fullMovie != null && mounted) {
         setState(() {
           _currentMovie = fullMovie;
-          _isLoadingDetails = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoadingDetails = false);
+      debugPrint('Error loading movie details: $e');
     }
   }
 
@@ -168,7 +163,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: selectedStatus == status
-                          ? _getStatusColor(status).withOpacity(0.2)
+                          ? _getStatusColor(status).withValues(alpha: 0.2)
                           : const Color(0xFF2A2A2A),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
@@ -198,6 +193,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 GestureDetector(
                   onTap: () async {
                     final now = DateTime.now();
+                    final messenger = ScaffoldMessenger.of(context);
                     final pickedDate = await showDatePicker(
                       context: context,
                       initialDate: now,
@@ -221,14 +217,13 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     if (pickedDate != null) {
                       // Проверка на будущую дату (дополнительная)
                       if (pickedDate.isAfter(now)) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Нельзя выбрать будущую дату!'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Нельзя выбрать будущую дату!'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
                         return;
                       }
                       setModalState(() {
@@ -356,7 +351,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [Color(0xFF7C4DFF), Color(0xFF00E5FF)]),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: const Color(0xFF7C4DFF).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: const Color(0xFF7C4DFF).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: InkWell(
           onTap: _incrementCount,
@@ -374,7 +369,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   ),
                   Text(
                     'Всего просмотров: $_watchCount',
-                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
                   ),
                 ],
               ),

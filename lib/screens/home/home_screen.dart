@@ -3,151 +3,114 @@ import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
 import '../../widgets/widgets.dart';
 import '../../models/models.dart';
+import '../../utils/modern_ui.dart';
 import '../movie_detail_screen.dart';
 
 /// ============================================================================
-/// HOME SCREEN - УЛУЧШЕННЫЙ UI
-/// ============================================================================
-/// Главная вкладка - тренды, популярные, топ rated с современным дизайном
+/// HOME SCREEN — Современный дизайн с glassmorphism и градиентами
 /// ============================================================================
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _isRefreshing = false;
+
   @override
   void initState() {
     super.initState();
     _loadData();
   }
 
-  /// Загрузка данных
   Future<void> _loadData() async {
-    final moviesProvider = context.read<MoviesProvider>();
-    await moviesProvider.loadTrendingMovies();
-    await moviesProvider.loadPopularMovies();
-    await moviesProvider.loadTopRatedMovies();
-  }
+    setState(() {
+      _isRefreshing = true;
+    });
 
-  /// Обновление для pull-to-refresh
-  Future<void> _onRefresh() async {
-    await _loadData();
+    try {
+      final moviesProvider = context.read<MoviesProvider>();
+      await Future.wait([
+        moviesProvider.loadTrendingMovies(),
+        moviesProvider.loadPopularMovies(),
+        moviesProvider.loadTopRatedMovies(),
+      ]);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF1A0B2E),
-              const Color(0xFF0D0D0D),
-            ],
-            stops: const [0.0, 0.5],
-          ),
+        decoration: const BoxDecoration(
+          gradient: ModernGradients.darkBackgroundGradient,
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // App Bar с градиентом
-              SliverAppBar(
-                floating: true,
-                snap: true,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Добро пожаловать',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                    const Text(
-                      'Movie Tracker',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                actions: [
-                  Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C4DFF).withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.refresh, color: Color(0xFF7C4DFF)),
-                      onPressed: _loadData,
-                      tooltip: 'Обновить',
+          child: Stack(
+            children: [
+              // Декоративные фоновые элементы
+              ModernDecorations.backgroundCircles,
+              // Основной контент
+              CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // Modern AppBar
+                  _buildModernAppBar(),
+                  // Контент
+                  SliverToBoxAdapter(
+                    child: Consumer<MoviesProvider>(
+                      builder: (context, moviesProvider, _) {
+                        if (moviesProvider.error != null && moviesProvider.trendingMovies.isEmpty) {
+                          return _buildErrorSection(moviesProvider.error!);
+                        }
+
+                        if (moviesProvider.isLoading && moviesProvider.trendingMovies.isEmpty) {
+                          return _buildLoadingSection();
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeroBanner(moviesProvider),
+                            const SizedBox(height: ModernSpacing.lg),
+                            _buildQuickCategories(),
+                            const SizedBox(height: ModernSpacing.xl),
+                            _buildModernSection(
+                              title: 'В тренде',
+                              icon: Icons.trending_up,
+                              subtitle: 'Популярное сейчас',
+                              movies: moviesProvider.trendingMovies,
+                            ),
+                            const SizedBox(height: ModernSpacing.xxl),
+                            _buildModernSection(
+                              title: 'Популярное',
+                              icon: Icons.local_fire_department,
+                              subtitle: 'Выбор зрителей',
+                              movies: moviesProvider.popularMovies,
+                            ),
+                            const SizedBox(height: ModernSpacing.xxl),
+                            _buildModernSection(
+                              title: 'Лучшее',
+                              icon: Icons.workspace_premium,
+                              subtitle: 'Высокий рейтинг',
+                              movies: moviesProvider.topRatedMovies,
+                            ),
+                            const SizedBox(height: 100),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
-              ),
-              // Контент
-              SliverToBoxAdapter(
-                child: Consumer<MoviesProvider>(
-                  builder: (context, moviesProvider, _) {
-                    // Ошибка
-                    if (moviesProvider.error != null) {
-                      return _buildErrorSection(moviesProvider.error!);
-                    }
-
-                    // Загрузка
-                    if (moviesProvider.isLoading && moviesProvider.trendingMovies.isEmpty) {
-                      return const SizedBox(
-                        height: 300,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF7C4DFF)),
-                          ),
-                        ),
-                      );
-                    }
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Hero баннер
-                        _buildHeroBanner(moviesProvider),
-                        // Быстрые категории
-                        _buildQuickCategories(),
-                        // Секции
-                        _buildSection(
-                          title: '🔥 В тренде',
-                          subtitle: 'Популярное сейчас',
-                          movies: moviesProvider.trendingMovies,
-                        ),
-                        _buildSection(
-                          title: '⭐ Популярное',
-                          subtitle: 'Выбор зрителей',
-                          movies: moviesProvider.popularMovies,
-                        ),
-                        _buildSection(
-                          title: '🏆 Лучшее',
-                          subtitle: 'Высокий рейтинг',
-                          movies: moviesProvider.topRatedMovies,
-                        ),
-                        const SizedBox(height: 100),
-                      ],
-                    );
-                  },
-                ),
               ),
             ],
           ),
@@ -156,25 +119,88 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Hero баннер
+  /// Современный AppBar
+  Widget _buildModernAppBar() {
+    return SliverAppBar(
+      floating: true,
+      snap: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: ModernGradients.primaryGradient,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.movie_creation, size: 22, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Movie Tracker',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        Container(
+          margin: const EdgeInsets.only(right: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 22),
+            onPressed: _isRefreshing ? null : _loadData,
+            tooltip: 'Обновить',
+          ),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  /// Hero баннер с PageView
   Widget _buildHeroBanner(MoviesProvider moviesProvider) {
     if (moviesProvider.trendingMovies.isEmpty) {
       return Container(
-        height: 300,
-        margin: const EdgeInsets.all(16),
+        height: 420,
+        margin: const EdgeInsets.all(ModernSpacing.lg),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(20),
+          color: ModernColors.surfaceDark,
+          borderRadius: BorderRadius.circular(ModernRadius.lg),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.movie_outlined, size: 60, color: Color(0xFF7C4DFF)),
-              SizedBox(height: 16),
+              Icon(Icons.movie_creation_outlined, size: 64, color: ModernColors.primaryPurple),
+              SizedBox(height: ModernSpacing.lg),
               Text(
                 'Загрузка фильмов...',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
+                style: TextStyle(color: Colors.white54, fontSize: 16),
               ),
             ],
           ),
@@ -182,314 +208,125 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final movie = moviesProvider.trendingMovies.first;
+    final movies = moviesProvider.trendingMovies.take(5).toList();
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MovieDetailScreen(movie: movie),
-          ),
-        );
-      },
-      child: Container(
-        height: 300,
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C4DFF).withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Градиентный фон
-              Container(
+    return SizedBox(
+      height: 420,
+      child: PageView.builder(
+        controller: PageController(viewportFraction: 0.88, initialPage: 0),
+        itemCount: movies.length,
+        itemBuilder: (context, index) {
+          final movie = movies[index];
+          return AnimatedBuilder(
+            animation: PageController(viewportFraction: 0.88),
+            builder: (context, child) {
+              return AnimatedContainer(
+                duration: ModernAnimations.normal,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF7C4DFF),
-                      const Color(0xFF00E5FF),
-                      const Color(0xFF0D0D0D),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
-                  ),
+                  borderRadius: BorderRadius.circular(ModernRadius.lg),
+                  boxShadow: ModernShadows.medium,
                 ),
-              ),
-              // Декоративные круги
-              Positioned(
-                right: -30,
-                top: -30,
-                child: Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.1),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: -50,
-                bottom: -50,
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.05),
-                  ),
-                ),
-              ),
-              // Градиент снизу
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.8),
-                      Colors.black,
-                    ],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
-                ),
-              ),
-              // Контент
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.orange.withOpacity(0.9),
-                              Colors.deepOrange,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.trending_up, color: Colors.white, size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              'Тренд #1',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        movie.title,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          if (movie.voteAverage > 0) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.star, color: Colors.amber, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    movie.voteAverage.toStringAsFixed(1),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                          ],
-                          if (movie.releaseYear.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                movie.releaseYear,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+                child: child,
+              );
+            },
+            child: _HeroMovieCard(movie: movie, rank: index + 1),
+          );
+        },
       ),
     );
   }
 
   /// Быстрые категории
   Widget _buildQuickCategories() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          _buildCategoryChip('🎬', 'Боевики'),
-          const SizedBox(width: 8),
-          _buildCategoryChip('😂', 'Комедии'),
-          const SizedBox(width: 8),
-          _buildCategoryChip('🚀', 'Фантастика'),
-          const SizedBox(width: 8),
-          _buildCategoryChip('💔', 'Драмы'),
-        ],
+    final categories = [
+      {'icon': Icons.local_fire_department, 'label': 'Боевики'},
+      {'icon': Icons.sentiment_very_satisfied, 'label': 'Комедии'},
+      {'icon': Icons.rocket_launch, 'label': 'Фантастика'},
+      {'icon': Icons.favorite, 'label': 'Драмы'},
+      {'icon': Icons.theaters, 'label': 'Триллеры'},
+    ];
+
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: ModernSpacing.lg),
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: ModernSpacing.sm),
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          return _CategoryChip(icon: cat['icon']! as IconData, label: cat['label']! as String);
+        },
       ),
     );
   }
 
-  Widget _buildCategoryChip(String emoji, String label) {
-    return GestureDetector(
-      onTap: () {
-        // Переход к категориям
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF333333)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Секция с фильмами
-  Widget _buildSection({
+  /// Современная секция с фильмами
+  Widget _buildModernSection({
     required String title,
-    String? subtitle,
+    required IconData icon,
+    required String subtitle,
     required List<Movie> movies,
   }) {
-    if (movies.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (movies.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          padding: const EdgeInsets.symmetric(horizontal: ModernSpacing.lg),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: ModernGradients.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: Colors.white),
+              ),
+              const SizedBox(width: ModernSpacing.md),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {},
+                child: const Text(
+                  'Все',
+                  style: TextStyle(
+                    color: ModernColors.primaryPurpleLight,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[500],
-                      ),
-                    ),
-                ],
+                ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: ModernSpacing.md),
         SizedBox(
           height: 280,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: ModernSpacing.lg),
             itemCount: movies.length > 10 ? 10 : movies.length,
             itemBuilder: (context, index) {
               final movie = movies[index];
               return Consumer<FavoritesProvider>(
                 builder: (context, favorites, _) {
+                  final auth = context.read<AuthProvider>();
                   final isFav = favorites.favorites.any((m) => m.id == movie.id);
                   return MovieCard(
                     movie: movie,
                     isFavorite: isFav,
-                    onFavoriteTap: () {
-                      final auth = context.read<AuthProvider>();
-                      favorites.toggleFavorite(movie, auth.userId);
-                    },
+                    onFavoriteTap: () => favorites.toggleFavorite(movie, auth.userId),
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => MovieDetailScreen(movie: movie),
-                        ),
+                        MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie)),
                       );
                     },
                   );
@@ -502,42 +339,328 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Секция ошибки
+  Widget _buildLoadingSection() {
+    return SizedBox(
+      height: 400,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: ModernGradients.primaryGradient,
+                borderRadius: BorderRadius.circular(ModernRadius.full),
+              ),
+              child: const Icon(Icons.movie_creation_rounded, size: 48, color: Colors.white),
+            ),
+            const SizedBox(height: ModernSpacing.xl),
+            Text(
+              'Загружаем фильмы...',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildErrorSection(String message) {
     return Padding(
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 60,
-            color: Colors.red[300],
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: ModernColors.error.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(ModernRadius.full),
+            ),
+            child: const Icon(Icons.error_outline_rounded, size: 56, color: ModernColors.error),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: ModernSpacing.xl),
           Text(
             'Ошибка загрузки',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[300],
-            ),
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: ModernSpacing.md),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[500]),
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: ModernSpacing.xxl),
           ElevatedButton.icon(
-            onPressed: _loadData,
-            icon: const Icon(Icons.refresh),
+            onPressed: _isRefreshing ? null : _loadData,
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
             label: const Text('Попробовать снова'),
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ModernRadius.md)),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// ============================================================================
+/// HERO MOVIE CARD — Современный дизайн
+/// ============================================================================
+
+class _HeroMovieCard extends StatelessWidget {
+  final Movie movie;
+  final int rank;
+
+  const _HeroMovieCard({required this.movie, required this.rank});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie)),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(ModernRadius.lg),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Фон с постером
+            _buildBackground(),
+            // Градиент
+            _buildGradientOverlay(),
+            // Контент
+            _buildContent(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    if (movie.backdropPath != null) {
+      return Image.network(
+        'https://image.tmdb.org/t/p/original${movie.backdropPath}',
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildFallbackBackground(),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return _buildFallbackBackground();
+        },
+      );
+    }
+    return _buildFallbackBackground();
+  }
+
+  Widget _buildFallbackBackground() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: ModernGradients.heroGradient,
+      ),
+    );
+  }
+
+  Widget _buildGradientOverlay() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.4),
+            Colors.black.withValues(alpha: 0.85),
+            Colors.black,
+          ],
+          stops: const [0.0, 0.3, 0.6, 1.0],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(ModernSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Badge
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: ModernGradients.sunsetGradient,
+                    borderRadius: BorderRadius.circular(ModernRadius.sm),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.trending_up_rounded, color: Colors.white, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Тренд #$rank',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                if (movie.voteAverage > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(ModernRadius.sm),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, color: ModernColors.warning, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          movie.voteAverage.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: ModernSpacing.md),
+            // Название
+            Text(
+              movie.title,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1.2,
+                letterSpacing: -0.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: ModernSpacing.sm),
+            // Год и жанры
+            Row(
+              children: [
+                if (movie.releaseYear.isNotEmpty)
+                  Text(
+                    movie.releaseYear,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                if (movie.genreIds.isNotEmpty) ...[
+                  const SizedBox(width: ModernSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${movie.genreIds.length} жанр${movie.genreIds.length == 1 ? '' : movie.genreIds.length < 5 ? 'а' : 'ов'}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ============================================================================
+/// CATEGORY CHIP — Современный чип категории
+/// ============================================================================
+
+class _CategoryChip extends StatefulWidget {
+  final IconData icon;
+  final String label;
+
+  const _CategoryChip({required this.icon, required this.label});
+
+  @override
+  State<_CategoryChip> createState() => _CategoryChipState();
+}
+
+class _CategoryChipState extends State<_CategoryChip> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: () {
+        // TODO: Переход к категориям
+      },
+      child: AnimatedContainer(
+        duration: ModernAnimations.fast,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isPressed
+              ? ModernColors.primaryPurple.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(ModernRadius.full),
+          border: Border.all(
+            color: _isPressed
+                ? ModernColors.primaryPurple.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, size: 16, color: _isPressed ? Colors.white : Colors.white.withValues(alpha: 0.8)),
+            const SizedBox(width: 6),
+            Text(
+              widget.label,
+              style: TextStyle(
+                color: _isPressed ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

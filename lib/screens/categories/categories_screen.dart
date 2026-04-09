@@ -11,7 +11,7 @@ import '../movie_detail_screen.dart';
 /// ============================================================================
 
 class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({Key? key}) : super(key: key);
+  const CategoriesScreen({super.key});
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
@@ -123,13 +123,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF7C4DFF).withOpacity(0.3),
-              const Color(0xFF00E5FF).withOpacity(0.1),
+              const Color(0xFF7C4DFF).withValues(alpha: 0.3),
+              const Color(0xFF00E5FF).withValues(alpha: 0.1),
             ],
           ),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: const Color(0xFF7C4DFF).withOpacity(0.3),
+            color: const Color(0xFF7C4DFF).withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -184,8 +184,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF7C4DFF).withOpacity(0.3),
-                const Color(0xFF00E5FF).withOpacity(0.1),
+                const Color(0xFF7C4DFF).withValues(alpha: 0.3),
+                const Color(0xFF00E5FF).withValues(alpha: 0.1),
               ],
             ),
             borderRadius: BorderRadius.circular(12),

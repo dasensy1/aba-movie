@@ -11,7 +11,7 @@ import '../movie_detail_screen.dart';
 /// ============================================================================
 
 class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({Key? key}) : super(key: key);
+  const FavoritesScreen({super.key});
 
   @override
   State<FavoritesScreen> createState() => _FavoritesScreenState();
@@ -64,8 +64,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               icon: Icons.favorite_border,
               action: ElevatedButton.icon(
                 onPressed: () {
-                  // Переключаемся на вкладку поиска или главную
-                  DefaultTabController.of(context)!.animateTo(0);
+                  DefaultTabController.of(context).animateTo(0);
                 },
                 icon: const Icon(Icons.search),
                 label: const Text('Найти фильмы'),
@@ -94,13 +93,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.red.withOpacity(0.2),
-                Colors.pink.withOpacity(0.1),
+                Colors.red.withValues(alpha: 0.2),
+                Colors.pink.withValues(alpha: 0.1),
               ],
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.red.withOpacity(0.3),
+              color: Colors.red.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -109,7 +108,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.2),
+                  color: Colors.red.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

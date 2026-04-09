@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/local_database_service.dart';
-import 'auth_provider.dart';
 
 /// ============================================================================
 /// FAVORITES PROVIDER — Версия 2 (user-scoped)
@@ -23,8 +22,15 @@ class FavoritesProvider with ChangeNotifier {
   String? get error => _error;
   int get count => _favorites.length;
 
+  int? _lastLoadedUserId;
+  bool _isFirstLoad = true;
+
   /// Загрузить избранные фильмы текущего пользователя
   Future<void> loadFavorites(int? userId) async {
+    if (userId == _lastLoadedUserId && !_isFirstLoad) return;
+    _lastLoadedUserId = userId;
+    _isFirstLoad = false;
+
     if (userId == null) {
       _favorites = [];
       _favoriteIds = {};

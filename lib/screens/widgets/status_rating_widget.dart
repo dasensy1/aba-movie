@@ -1,8 +1,8 @@
-/// ============================================================================
-/// STATUS RATING WIDGET
-/// ============================================================================
-/// Виджет для выбора статуса фильма и оценки в треккинге
-/// ============================================================================
+// ============================================================================
+// STATUS RATING WIDGET
+// ============================================================================
+// Виджет для выбора статуса фильма и оценки в треккинге
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -16,12 +16,12 @@ class StatusRatingWidget extends StatefulWidget {
   final Function(WatchStatus)? onStatusChanged;
 
   const StatusRatingWidget({
-    Key? key,
+    super.key,
     required this.movieId,
     required this.initialStatus,
     required this.isInWatchlist,
     this.onStatusChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<StatusRatingWidget> createState() => _StatusRatingWidgetState();
@@ -62,6 +62,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
 
     if (result != null) {
       final (selected, selectedDate) = result;
+      if (!mounted) return;
       if (selected != _currentStatus || selectedDate != null) {
         setState(() {
           _currentStatus = selected;
@@ -101,7 +102,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7C4DFF).withOpacity(0.2),
+                    color: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -167,7 +168,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF00E5FF).withOpacity(0.2),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
@@ -220,7 +221,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.2),
+                color: Colors.amber.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.star, color: Colors.amber, size: 20),
@@ -245,7 +246,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
                   activeTrackColor: Colors.amber,
                   inactiveTrackColor: const Color(0xFF333333),
                   thumbColor: Colors.amber,
-                  overlayColor: Colors.amber.withOpacity(0.2),
+                  overlayColor: Colors.amber.withValues(alpha: 0.2),
                   trackHeight: 6,
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
                 ),
@@ -273,7 +274,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.2),
+                color: Colors.amber.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.amber, width: 2),
               ),
@@ -299,7 +300,7 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
 class _StatusSelectionSheet extends StatefulWidget {
   final WatchStatus currentStatus;
 
-  const _StatusSelectionSheet({Key? key, required this.currentStatus}) : super(key: key);
+  const _StatusSelectionSheet({required this.currentStatus});
 
   @override
   State<_StatusSelectionSheet> createState() => _StatusSelectionSheetState();
@@ -353,7 +354,7 @@ class _StatusSelectionSheetState extends State<_StatusSelectionSheet> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? _getStatusColor(status).withOpacity(0.2)
+                          ? _getStatusColor(status).withValues(alpha: 0.2)
                           : const Color(0xFF2A2A2A),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
@@ -383,6 +384,7 @@ class _StatusSelectionSheetState extends State<_StatusSelectionSheet> {
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () async {
+                  final messenger = ScaffoldMessenger.of(context);
                   final now = DateTime.now();
                   final pickedDate = await showDatePicker(
                     context: context,
@@ -406,14 +408,13 @@ class _StatusSelectionSheetState extends State<_StatusSelectionSheet> {
 
                   if (pickedDate != null) {
                     if (pickedDate.isAfter(now)) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Нельзя выбрать будущую дату!'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Нельзя выбрать будущую дату!'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
                       return;
                     }
                     setModalState(() {

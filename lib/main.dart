@@ -12,16 +12,15 @@ import 'providers/providers.dart';
 import 'screens/main_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'utils/config.dart';
+import 'utils/modern_ui.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Инициализация базы данных в зависимости от платформы
   if (kIsWeb) {
-    // Для веба используем sqflite_common_ffi_web
     databaseFactory = databaseFactoryFfiWeb;
   } else {
-    // Для десктопных платформ (Windows, Linux, macOS) и мобильных
     databaseFactory = databaseFactoryFfi;
   }
 
@@ -29,53 +28,39 @@ void main() async {
 }
 
 class MovieTrackerApp extends StatelessWidget {
-  const MovieTrackerApp({Key? key}) : super(key: key);
+  const MovieTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Auth Provider — инициализируется первым, загружает пользователя из БД
         ChangeNotifierProvider(
           create: (_) => AuthProvider()..initialize(),
         ),
-        // Movies Provider
         ChangeNotifierProvider(
           create: (_) => MoviesProvider(),
         ),
-        // Favorites Provider — загрузка после auth
         ChangeNotifierProvider(
           create: (_) => FavoritesProvider(),
         ),
-        // Watchlist Provider — загрузка после auth
         ChangeNotifierProvider(
           create: (_) => WatchlistProvider(),
         ),
-        // Reviews Provider
         ChangeNotifierProvider(
           create: (_) => ReviewsProvider(),
         ),
-        // Settings Provider — загрузка после auth
         ChangeNotifierProvider(
           create: (_) => SettingsProvider(),
         ),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, auth, _) {
-          // Когда auth загрузился, инициализируем остальные провайдеры с userId
-          return _AppRoot(auth: auth);
-        },
-      ),
+      child: const _AppRoot(),
     );
   }
 }
 
-/// Внутренний виджет, который реагирует на изменения AuthProvider
-/// и инициализирует зависимые провайдеры с userId
+/// Единый корневой виджет с единственным Splash/роутингом.
 class _AppRoot extends StatefulWidget {
-  final AuthProvider auth;
-
-  const _AppRoot({Key? key, required this.auth}) : super(key: key);
+  const _AppRoot();
 
   @override
   State<_AppRoot> createState() => _AppRootState();
@@ -83,14 +68,25 @@ class _AppRoot extends StatefulWidget {
 
 class _AppRootState extends State<_AppRoot> {
   int? _lastUserId;
+  bool _providersInitialized = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  void initState() {
+    super.initState();
+    // Инициализируем провайдеры после первого frame когда AuthProvider готов
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthProvider>();
+      _lastUserId = auth.userId;
+      _initializeProviders(auth.userId);
+    });
+    // Также слушаем изменения auth
+    context.read<AuthProvider>().addListener(_onAuthChanged);
+  }
 
-    final userId = widget.auth.userId;
+  void _onAuthChanged() {
+    final auth = context.read<AuthProvider>();
+    final userId = auth.userId;
 
-    // Если пользователь изменился (вошёл/вышел) — перезагружаем данные
     if (userId != _lastUserId) {
       _lastUserId = userId;
       _initializeProviders(userId);
@@ -98,6 +94,11 @@ class _AppRootState extends State<_AppRoot> {
   }
 
   Future<void> _initializeProviders(int? userId) async {
+    if (_providersInitialized && userId == _lastUserId) return;
+    if (userId != null) {
+      _providersInitialized = true;
+    }
+
     final settings = context.read<SettingsProvider>();
     final favorites = context.read<FavoritesProvider>();
     final watchlist = context.read<WatchlistProvider>();
@@ -108,49 +109,62 @@ class _AppRootState extends State<_AppRoot> {
   }
 
   @override
+  void dispose() {
+    context.read<AuthProvider>().removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, _) {
+    return Consumer2<AuthProvider, SettingsProvider>(
+      builder: (context, auth, settings, _) {
+        if (auth.isLoading) {
+          return MaterialApp(
+            title: AppConfig.appName,
+            debugShowCheckedModeBanner: false,
+            theme: AppThemes.lightTheme,
+            darkTheme: AppThemes.darkTheme,
+            themeMode: settings.isDarkTheme ? ThemeMode.dark : ThemeMode.light,
+            home: const _ModernSplashScreen(),
+          );
+        }
+
+        if (auth.isSignedIn) {
+          return MaterialApp(
+            title: AppConfig.appName,
+            debugShowCheckedModeBanner: false,
+            theme: AppThemes.lightTheme,
+            darkTheme: AppThemes.darkTheme,
+            themeMode: settings.isDarkTheme ? ThemeMode.dark : ThemeMode.light,
+            home: const MainScreen(),
+          );
+        }
+
         return MaterialApp(
           title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
           theme: AppThemes.lightTheme,
           darkTheme: AppThemes.darkTheme,
           themeMode: settings.isDarkTheme ? ThemeMode.dark : ThemeMode.light,
-          home: const AppStartup(),
+          home: const LoginScreen(),
         );
       },
     );
   }
 }
 
-class AppStartup extends StatelessWidget {
-  const AppStartup({Key? key}) : super(key: key);
+/// ============================================================================
+/// MODERN SPLASH SCREEN
+/// ============================================================================
+
+class _ModernSplashScreen extends StatefulWidget {
+  const _ModernSplashScreen();
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, auth, _) {
-        if (auth.isLoading) {
-          return const SplashScreen();
-        }
-        if (auth.isSignedIn) {
-          return const MainScreen();
-        }
-        return const LoginScreen();
-      },
-    );
-  }
+  State<_ModernSplashScreen> createState() => _ModernSplashScreenState();
 }
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen>
+class _ModernSplashScreenState extends State<_ModernSplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -161,12 +175,12 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
 
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    _scaleAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -174,12 +188,6 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
-
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (mounted) {
-        _navigateToNextScreen();
-      }
-    });
   }
 
   @override
@@ -188,57 +196,172 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  Future<void> _navigateToNextScreen() async {
-    if (!mounted) return;
-    final authProvider = context.read<AuthProvider>();
-    if (authProvider.isSignedIn) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0D0D0D),
-              Color(0xFF1A0B2E),
-              Color(0xFF2D1B4E),
-              Color(0xFF0D0D0D),
-            ],
-            stops: [0.0, 0.3, 0.7, 1.0],
-          ),
+          gradient: ModernGradients.heroGradient,
         ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.movie_filter,
-                size: 100,
-                color: Color(0xFF7C4DFF),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -80,
+              top: -80,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: 1.0 + (_controller.value * 0.3),
+                    child: Container(
+                      width: 250,
+                      height: 250,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            ModernColors.accentCyan.withValues(alpha: 0.3),
+                            ModernColors.accentCyan.withValues(alpha: 0.1),
+                            ModernColors.accentCyan.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 32),
-              const Text(
-                'Movie Tracker',
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF7C4DFF),
-                ),
+            ),
+            Positioned(
+              left: -100,
+              bottom: -100,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: 1.0 + (_controller.value * 0.4),
+                    child: Container(
+                      width: 300,
+                      height: 300,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            ModernColors.accentPink.withValues(alpha: 0.25),
+                            ModernColors.accentPink.withValues(alpha: 0.08),
+                            ModernColors.accentPink.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+            Center(
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              AnimatedBuilder(
+                                animation: _controller,
+                                builder: (context, child) {
+                                  return Container(
+                                    width: 140 * (0.5 + _controller.value * 0.5),
+                                    height: 140 * (0.5 + _controller.value * 0.5),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: RadialGradient(
+                                        colors: [
+                                          ModernColors.primaryPurple.withValues(alpha: 0.4),
+                                          ModernColors.primaryPurple.withValues(alpha: 0),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(28),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: ModernGradients.primaryGradient,
+                                  boxShadow: ModernShadows.purpleGlow,
+                                ),
+                                child: const Icon(
+                                  Icons.movie_creation_rounded,
+                                  size: 56,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+                          const Text(
+                            'Movie Tracker',
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black26,
+                                  offset: Offset(0, 2),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FadeTransition(
+                            opacity: CurvedAnimation(
+                              parent: _controller,
+                              curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+                            ),
+                            child: Text(
+                              'Отслеживай. Смотри. Наслаждайся.',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 48),
+                          FadeTransition(
+                            opacity: CurvedAnimation(
+                              parent: _controller,
+                              curve: const Interval(0.6, 1.0, curve: Curves.easeIn),
+                            ),
+                            child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/models.dart';
@@ -30,8 +32,19 @@ class LocalDatabaseService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+    try {
+      _database = await _initDatabase().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('Database initialization timed out');
+          throw TimeoutException('Database initialization timed out');
+        },
+      );
+      return _database!;
+    } catch (e) {
+      debugPrint('Database error: $e');
+      rethrow;
+    }
   }
 
   Future<Database> _initDatabase() async {
@@ -313,6 +326,7 @@ class LocalDatabaseService {
       }
     } catch (e) {
       // Старая таблица могла уже не существовать
+      debugPrint('Migration v6: error copying favorites: $e');
     }
 
     // Для watchlist
@@ -324,7 +338,9 @@ class LocalDatabaseService {
         newWl.remove('id');
         await db.insert('watchlist_new', newWl, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Migration v6: error copying watchlist: $e');
+    }
 
     // Для watch_log
     try {
@@ -335,7 +351,9 @@ class LocalDatabaseService {
         newLog.remove('id');
         await db.insert('watch_log_new', newLog, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Migration v6: error copying watch_log: $e');
+    }
 
     // Для reviews
     try {
@@ -346,7 +364,9 @@ class LocalDatabaseService {
         newReview.remove('id');
         await db.insert('reviews_new', newReview, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Migration v6: error copying reviews: $e');
+    }
 
     // Удаляем старые таблицы
     await db.execute('DROP TABLE IF EXISTS favorites');
@@ -389,7 +409,9 @@ class LocalDatabaseService {
         'dark_theme': darkTheme,
         'language': language,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Migration v6: error copying settings to user_settings: $e');
+    }
 
     await db.execute('PRAGMA foreign_keys = ON');
   }
@@ -777,7 +799,7 @@ class LocalDatabaseService {
     return Review(
       id: map['id'] ?? 0,
       movieId: map['movie_id'] ?? map['movieId'] ?? 0,
-      userId: 'local_user_${map['user_id']}',
+      userId: map['user_id'] ?? 0,
       userName: map['user_name'] ?? 'Аноним',
       userPhotoUrl: '',
       rating: (map['rating'] ?? 0.0).toDouble(),

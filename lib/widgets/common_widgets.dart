@@ -8,7 +8,7 @@ import 'package:shimmer/shimmer.dart';
 /// ============================================================================
 
 class MovieCardSkeleton extends StatelessWidget {
-  const MovieCardSkeleton({Key? key}) : super(key: key);
+  const MovieCardSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -79,10 +79,10 @@ class ListSkeleton extends StatelessWidget {
   final int itemCount;
 
   const ListSkeleton({
-    Key? key,
+    super.key,
     required this.height,
     this.itemCount = 5,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -124,11 +124,11 @@ class CustomErrorWidget extends StatelessWidget {
   final IconData? icon;
 
   const CustomErrorWidget({
-    Key? key,
+    super.key,
     required this.message,
     this.onRetry,
     this.icon,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -180,12 +180,12 @@ class EmptyStateWidget extends StatelessWidget {
   final Widget? action;
 
   const EmptyStateWidget({
-    Key? key,
+    super.key,
     required this.title,
     this.subtitle,
     this.icon,
     this.action,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -240,7 +240,7 @@ class EmptyStateWidget extends StatelessWidget {
 class LoadingIndicator extends StatelessWidget {
   final String? message;
 
-  const LoadingIndicator({Key? key, this.message}) : super(key: key);
+  const LoadingIndicator({super.key, this.message});
 
   @override
   Widget build(BuildContext context) {

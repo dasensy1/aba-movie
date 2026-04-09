@@ -12,7 +12,7 @@ import '../movie_detail_screen.dart';
 /// ============================================================================
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({Key? key}) : super(key: key);
+  const SearchScreen({super.key});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -125,7 +125,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (moviesProvider.searchQuery.isEmpty) {
                     return _buildEmptyState();
                   }
-                  return EmptyStateWidget(
+                  return const EmptyStateWidget(
                     title: 'Ничего не найдено',
                     subtitle: 'Попробуйте другой поисковый запрос',
                     icon: Icons.search_off,

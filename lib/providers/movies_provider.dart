@@ -12,7 +12,6 @@ import '../services/services.dart';
 class MoviesProvider with ChangeNotifier {
   final OmdbApiService _apiService = OmdbApiService();
   final DemoDataService _demoService = DemoDataService();
-  final LocalDatabaseService _dbService = LocalDatabaseService();
 
   List<Movie> _trendingMovies = [];
   List<Movie> _searchResults = [];
@@ -21,8 +20,13 @@ class MoviesProvider with ChangeNotifier {
   List<Movie> _moviesByGenre = [];
   List<Genre> _genres = [];
 
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
+  // Разделённые loading-флаги для каждой операции
+  bool _isLoadingTrending = false;
+  bool _isLoadingSearch = false;
+  bool _isLoadingPopular = false;
+  bool _isLoadingTopRated = false;
+  bool _isLoadingGenre = false;
+  final bool _isLoadingMore = false;
   String? _error;
   String _searchQuery = '';
   int _selectedGenreId = 0;
@@ -34,7 +38,13 @@ class MoviesProvider with ChangeNotifier {
   List<Movie> get topRatedMovies => _topRatedMovies;
   List<Movie> get moviesByGenre => _moviesByGenre;
   List<Genre> get genres => _genres;
-  bool get isLoading => _isLoading;
+  // Общий флаг — true если любая операция грузится
+  bool get isLoading => _isLoadingTrending || _isLoadingSearch || _isLoadingPopular || _isLoadingTopRated || _isLoadingGenre;
+  bool get isLoadingTrending => _isLoadingTrending;
+  bool get isLoadingSearch => _isLoadingSearch;
+  bool get isLoadingPopular => _isLoadingPopular;
+  bool get isLoadingTopRated => _isLoadingTopRated;
+  bool get isLoadingGenre => _isLoadingGenre;
   bool get isLoadingMore => _isLoadingMore;
   String? get error => _error;
   String get searchQuery => _searchQuery;
@@ -44,18 +54,17 @@ class MoviesProvider with ChangeNotifier {
   /// TRENDING FILMS (Now from OMDb API)
   /// ============================================================================
   Future<void> loadTrendingMovies() async {
-    _isLoading = true;
+    _isLoadingTrending = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Загружаем реальные данные из OMDb вместо демо
       _trendingMovies = await _apiService.getPopularMovies();
-      _isLoading = false;
+      _isLoadingTrending = false;
       notifyListeners();
     } catch (e) {
       _error = 'Ошибка загрузки трендов: $e';
-      _isLoading = false;
+      _isLoadingTrending = false;
       notifyListeners();
     }
   }
@@ -71,18 +80,18 @@ class MoviesProvider with ChangeNotifier {
       return;
     }
 
-    _isLoading = true;
+    _isLoadingSearch = true;
     _error = null;
     _searchQuery = query;
     notifyListeners();
 
     try {
       _searchResults = await _apiService.searchMovies(query);
-      _isLoading = false;
+      _isLoadingSearch = false;
       notifyListeners();
     } catch (e) {
       _error = 'Ошибка поиска: $e';
-      _isLoading = false;
+      _isLoadingSearch = false;
       notifyListeners();
     }
   }
@@ -98,18 +107,17 @@ class MoviesProvider with ChangeNotifier {
   /// POPULAR FILMS (Now from OMDb API)
   /// ============================================================================
   Future<void> loadPopularMovies() async {
-    _isLoading = true;
+    _isLoadingPopular = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Используем поисковый запрос для популярных новинок
       _popularMovies = await _apiService.searchMovies('Marvel');
-      _isLoading = false;
+      _isLoadingPopular = false;
       notifyListeners();
     } catch (e) {
       _error = 'Ошибка загрузки популярных: $e';
-      _isLoading = false;
+      _isLoadingPopular = false;
       notifyListeners();
     }
   }
@@ -118,18 +126,17 @@ class MoviesProvider with ChangeNotifier {
   /// TOP RATED FILMS (Now from OMDb API)
   /// ============================================================================
   Future<void> loadTopRatedMovies() async {
-    _isLoading = true;
+    _isLoadingTopRated = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Используем поисковый запрос для классики
       _topRatedMovies = await _apiService.searchMovies('Star Wars');
-      _isLoading = false;
+      _isLoadingTopRated = false;
       notifyListeners();
     } catch (e) {
       _error = 'Ошибка загрузки лучших: $e';
-      _isLoading = false;
+      _isLoadingTopRated = false;
       notifyListeners();
     }
   }
@@ -138,41 +145,40 @@ class MoviesProvider with ChangeNotifier {
   /// ЖАНРЫ
   /// ============================================================================
   Future<void> loadGenres() async {
-    _isLoading = true;
+    _isLoadingTrending = true;
     _error = null;
     notifyListeners();
 
     try {
       _genres = _demoService.demoGenres;
-      _isLoading = false;
+      _isLoadingTrending = false;
       notifyListeners();
     } catch (e) {
       _error = 'Ошибка загрузки жанров: $e';
-      _isLoading = false;
+      _isLoadingTrending = false;
       notifyListeners();
     }
   }
 
   /// Фильмы по жанру
   Future<void> loadMoviesByGenre(int genreId) async {
-    _isLoading = true;
+    _isLoadingGenre = true;
     _error = null;
     _selectedGenreId = genreId;
     notifyListeners();
 
     try {
-      // Имитируем жанры через поиск по ключевым словам
       String query = 'action';
       if (genreId == 1) query = 'action';
       if (genreId == 2) query = 'comedy';
       if (genreId == 3) query = 'drama';
-      
+
       _moviesByGenre = await _apiService.searchMovies(query);
-      _isLoading = false;
+      _isLoadingGenre = false;
       notifyListeners();
     } catch (e) {
       _error = 'Ошибка загрузки фильмов: $e';
-      _isLoading = false;
+      _isLoadingGenre = false;
       notifyListeners();
     }
   }
@@ -182,6 +188,16 @@ class MoviesProvider with ChangeNotifier {
     _moviesByGenre = [];
     _selectedGenreId = 0;
     notifyListeners();
+  }
+
+  /// Получить детали фильма по IMDB ID (через провайдер, не напрямую API)
+  Future<Movie?> getMovieDetails(String imdbId) async {
+    try {
+      return await _apiService.getMovieDetails(imdbId);
+    } catch (e) {
+      debugPrint('MoviesProvider getMovieDetails error: $e');
+      return null;
+    }
   }
 
   /// Сбросить ошибку

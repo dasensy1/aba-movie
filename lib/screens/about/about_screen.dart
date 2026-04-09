@@ -6,7 +6,7 @@ import '../../utils/config.dart';
 /// ============================================================================
 
 class AboutScreen extends StatelessWidget {
-  const AboutScreen({Key? key}) : super(key: key);
+  const AboutScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +27,8 @@ class AboutScreen extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF7C4DFF).withOpacity(0.3),
-                    const Color(0xFF00E5FF).withOpacity(0.1),
+                    const Color(0xFF7C4DFF).withValues(alpha: 0.3),
+                    const Color(0xFF00E5FF).withValues(alpha: 0.1),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(24),
@@ -120,7 +120,7 @@ class AboutScreen extends StatelessWidget {
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Приложение работает локально 📱'),
+                        content: Text('Приложение работает локально'),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -133,7 +133,7 @@ class AboutScreen extends StatelessWidget {
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Спасибо за оценку! ⭐'),
+                        content: Text('Спасибо за оценку!'),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -182,7 +182,7 @@ class AboutScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF7C4DFF).withOpacity(0.2),
+              color: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: const Color(0xFF7C4DFF), size: 24),

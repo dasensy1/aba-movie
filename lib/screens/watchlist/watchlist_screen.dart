@@ -1,8 +1,8 @@
-/// ============================================================================
-/// WATCHLIST SCREEN
-/// ============================================================================
-/// Экран трекинга фильмов со статусами: хочу посмотреть, смотрю, просмотрено
-/// ============================================================================
+// ============================================================================
+// WATCHLIST SCREEN
+// ============================================================================
+// Экран трекинга фильмов со статусами: хочу посмотреть, смотрю, просмотрено
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,7 +10,7 @@ import '../../providers/providers.dart';
 import '../../models/models.dart';
 
 class WatchlistScreen extends StatefulWidget {
-  const WatchlistScreen({Key? key}) : super(key: key);
+  const WatchlistScreen({super.key});
 
   @override
   State<WatchlistScreen> createState() => _WatchlistScreenState();
@@ -140,9 +140,9 @@ class _WatchlistScreenState extends State<WatchlistScreen>
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF7C4DFF).withOpacity(0.2),
+                  color: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF7C4DFF).withOpacity(0.5)),
+                  border: Border.all(color: const Color(0xFF7C4DFF).withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
@@ -267,9 +267,9 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(movie.status).withOpacity(0.2),
+                      color: _getStatusColor(movie.status).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _getStatusColor(movie.status).withOpacity(0.5)),
+                      border: Border.all(color: _getStatusColor(movie.status).withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -307,9 +307,9 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00E5FF).withOpacity(0.1),
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3)),
+                          border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
@@ -327,9 +327,9 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(0.1),
+                            color: Colors.amber.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -380,12 +380,12 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                         ],
                       ),
                     ),
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'remove',
                       child: Row(
                         children: [
-                          const Icon(Icons.delete, size: 20, color: Colors.red),
-                          const SizedBox(width: 12),
+                          Icon(Icons.delete, size: 20, color: Colors.red),
+                          SizedBox(width: 12),
                           Text('Удалить', style: TextStyle(color: Colors.red)),
                         ],
                       ),
@@ -435,6 +435,7 @@ class _WatchlistScreenState extends State<WatchlistScreen>
 
   Future<void> _changeWatchDate(WatchlistMovie movie) async {
     final auth = context.read<AuthProvider>();
+    final messenger = ScaffoldMessenger.of(context);
     final now = DateTime.now();
     final pickedDate = await showDatePicker(
       context: context,
@@ -458,16 +459,16 @@ class _WatchlistScreenState extends State<WatchlistScreen>
 
     if (pickedDate != null) {
       if (pickedDate.isAfter(now)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Нельзя выбрать будущую дату!'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Нельзя выбрать будущую дату!'),
+            backgroundColor: Colors.red,
+          ),
+        );
         return;
       }
+      if (!mounted) return;
       await context.read<WatchlistProvider>().updateStatus(
         movie.movieId,
         movie.status,
@@ -502,7 +503,7 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: movie.status == status
-                      ? _getStatusColor(status).withOpacity(0.2)
+                      ? _getStatusColor(status).withValues(alpha: 0.2)
                       : const Color(0xFF2A2A2A),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
@@ -558,6 +559,7 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                 const SizedBox(height: 8),
                 GestureDetector(
                   onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
                     final pickedDate = await showDatePicker(
                       context: context,
                       initialDate: selectedDate ?? now,
@@ -580,14 +582,13 @@ class _WatchlistScreenState extends State<WatchlistScreen>
 
                     if (pickedDate != null) {
                       if (pickedDate.isAfter(now)) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Нельзя выбрать будущую дату!'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Нельзя выбрать будущую дату!'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
                         return;
                       }
                       setModalState(() {

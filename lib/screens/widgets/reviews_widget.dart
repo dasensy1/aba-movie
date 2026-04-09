@@ -6,7 +6,7 @@ import '../../providers/providers.dart';
 class ReviewsWidget extends StatefulWidget {
   final int movieId;
 
-  const ReviewsWidget({Key? key, required this.movieId}) : super(key: key);
+  const ReviewsWidget({super.key, required this.movieId});
 
   @override
   State<ReviewsWidget> createState() => _ReviewsWidgetState();
@@ -34,7 +34,7 @@ class _ReviewsWidgetState extends State<ReviewsWidget> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.2),
+                    color: Colors.amber.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.rate_review, color: Colors.amber, size: 20),
@@ -149,7 +149,7 @@ class _ReviewsWidgetState extends State<ReviewsWidget> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.2),
+                  color: Colors.amber.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -263,10 +263,12 @@ class _ReviewsWidgetState extends State<ReviewsWidget> {
                   onPressed: () async {
                     if (commentController.text.trim().isEmpty) return;
 
+                    final auth = context.read<AuthProvider>();
+                    final navigator = Navigator.of(context);
                     final review = Review(
                       id: 0,
                       movieId: widget.movieId,
-                      userId: user.uid,
+                      userId: auth.userId ?? 0,
                       userName: user.displayName ?? 'Пользователь',
                       userPhotoUrl: user.photoUrl ?? '',
                       rating: rating,
@@ -276,9 +278,10 @@ class _ReviewsWidgetState extends State<ReviewsWidget> {
 
                     await context.read<ReviewsProvider>().addReview(
                       review,
-                      context.read<AuthProvider>().userId,
+                      auth.userId,
                     );
-                    if (mounted) Navigator.pop(context);
+                    if (!mounted) return;
+                    navigator.pop();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7C4DFF),

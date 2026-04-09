@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
-import '../../providers/auth_provider.dart';
 
 /// ============================================================================
 /// SETTINGS SCREEN
 /// ============================================================================
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  const SettingsScreen({super.key});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -87,7 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Спасибо за оценку! ⭐'),
+                            content: Text('Спасибо за оценку!'),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -164,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: const Color(0xFF7C4DFF),
+        activeThumbColor: const Color(0xFF7C4DFF),
       ),
     );
   }
@@ -219,7 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: const Icon(Icons.language, color: Color(0xFF7C4DFF)),
       title: const Text('Язык приложения'),
       subtitle: Text(
-        '${settings.getLanguageFlag(settings.language)} ${settings.getLanguageName(settings.language)}',
+        settings.getLanguageName(settings.language),
       ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showLanguageDialog(settings),
@@ -251,7 +250,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ...settings.supportedLanguages.map((lang) {
               final isSelected = settings.language == lang['code'];
               return ListTile(
-                leading: Text(lang['flag']!, style: const TextStyle(fontSize: 24)),
+                leading: Icon(
+                  settings.getLanguageIcon(lang['code']!),
+                  color: const Color(0xFF7C4DFF),
+                ),
                 title: Text(lang['name']!),
                 trailing: isSelected
                     ? const Icon(Icons.check, color: Color(0xFF7C4DFF))

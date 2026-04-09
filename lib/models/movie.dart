@@ -56,9 +56,21 @@ class Movie {
     String? releaseDate;
     if (json['Released'] != null && json['Released'] != 'N/A') {
       try {
-        final parts = json['Released'].toString().split(' ');
+        // OMDb возвращает формат "DD Mon YYYY" (например "15 Jan 2024")
+        final parts = json['Released'].toString().trim().split(' ');
         if (parts.length >= 3) {
-          releaseDate = '${parts[2]}-01-01';
+          final year = parts.last;
+          final monthStr = parts[parts.length - 2];
+          final day = parts[0];
+
+          const months = {
+            'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+            'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+            'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12',
+          };
+
+          final month = months[monthStr] ?? '01';
+          releaseDate = '$year-$month-${day.padLeft(2, '0')}';
         }
       } catch (e) {
         releaseDate = null;
@@ -84,7 +96,7 @@ class Movie {
       }
     }
 
-    String? posterUrl = null;
+    String? posterUrl;
     if (json['Poster'] != null && 
         json['Poster'] != 'N/A' && 
         json['Poster'].toString().trim().isNotEmpty) {

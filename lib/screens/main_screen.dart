@@ -19,7 +19,7 @@ import 'about/about_screen.dart';
 /// ============================================================================
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -66,19 +66,6 @@ class _MainScreenState extends State<MainScreen> {
 
     // Загрузка треккинга с userId
     watchlistProvider.loadWatchlist(auth.userId);
-  }
-
-  /// Перезагрузка данных при смене пользователя
-  Future<void> _reloadDataForUser(int? userId) async {
-    if (userId == null) return;
-
-    final favoritesProvider = context.read<FavoritesProvider>();
-    final settingsProvider = context.read<SettingsProvider>();
-    final watchlistProvider = context.read<WatchlistProvider>();
-
-    await settingsProvider.initialize(userId);
-    await favoritesProvider.loadFavorites(userId);
-    await watchlistProvider.loadWatchlist(userId);
   }
 
   @override
@@ -132,7 +119,7 @@ class _MainScreenState extends State<MainScreen> {
 /// ============================================================================
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
