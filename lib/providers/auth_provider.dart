@@ -34,24 +34,55 @@ class AuthProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    debugPrint('=== ИНИЦИАЛИЗАЦИЯ AUTH PROVIDER ===');
+
     try {
       // Читаем session_user_id из SharedPreferences (единственное, что там храним)
       final prefs = await SharedPreferences.getInstance();
       final sessionUserId = prefs.getInt(_sessionUserIdKey);
 
+      debugPrint('session_user_id из SharedPreferences: $sessionUserId');
+
       if (sessionUserId != null) {
-        // Таймаут 5 секунд — если БД не ответит, продолжаем без пользователя
-        _localUser = await _userRepository.getUserById(sessionUserId)
-            .timeout(const Duration(seconds: 5));
-        if (_localUser != null) {
-          _user = _localUser!.toAppUser();
-        } else {
-          // Пользователь удалён — очищаем сессию
-          await prefs.remove(_sessionUserIdKey);
+        debugPrint('Попытка восстановления сессии для пользователя ID: $sessionUserId');
+        
+        // Пробуем восстановить пользователя из БД с увеличенным таймаутом
+        try {
+          _localUser = await _userRepository.getUserById(sessionUserId)
+              .timeout(const Duration(seconds: 15));
+          
+          if (_localUser != null) {
+            debugPrint('Сессия восстановлена успешно: ${_localUser!.email}');
+            _user = _localUser!.toAppUser();
+          } else {
+            // Пользователь удалён — очищаем сессию
+            debugPrint('Пользователь ID $sessionUserId не найден в БД, очищаем сессию');
+            await prefs.remove(_sessionUserIdKey);
+            _localUser = null;
+            _user = null;
+          }
+        } catch (dbError) {
+          debugPrint('Ошибка при чтении пользователя из БД: $dbError');
+          // Пробуем еще раз без таймаута
+          try {
+            _localUser = await _userRepository.getUserById(sessionUserId);
+            if (_localUser != null) {
+              debugPrint('Сессия восстановлена (без таймаута): ${_localUser!.email}');
+              _user = _localUser!.toAppUser();
+            } else {
+              await prefs.remove(_sessionUserIdKey);
+            }
+          } catch (retryError) {
+            debugPrint('Повторная ошибка: $retryError');
+            // Если БД недоступна, но сессия была - не теряем пользователя
+            // Оставляем _localUser = null, но сохраняем sessionUserId
+          }
         }
+      } else {
+        debugPrint('Сессия не найдена в SharedPreferences');
       }
     } catch (e) {
-      debugPrint('Ошибка инициализации auth: $e');
+      debugPrint('Критическая ошибка инициализации auth: $e');
       // Не блокируем приложение — продолжаем без сессии
     }
 
@@ -85,18 +116,45 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
 
+      // Сначала проверяем существует ли пользователь
+      final existingUser = await _userRepository.getUserByEmail(email);
+      if (existingUser == null) {
+        _error = 'Аккаунт с таким email не существует. Пожалуйста, зарегистрируйтесь.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Теперь пробуем войти
       _localUser = await _userRepository.login(email: email, password: password);
       _user = _localUser!.toAppUser();
 
       // Сохраняем сессию
       final prefs = await SharedPreferences.getInstance();
+      debugPrint('Сохраняю сессию: user_id=${_localUser!.id}');
       await prefs.setInt(_sessionUserIdKey, _localUser!.id!);
+      
+      // Проверим что сохранилось
+      final savedId = prefs.getInt(_sessionUserIdKey);
+      debugPrint('Проверка: session_user_id из SharedPreferences = $savedId');
 
+      debugPrint('Вход выполнен успешно: ${_localUser!.email}');
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString().replaceAll('Exception: ', '');
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
+      
+      // Преобразуем технические ошибки в понятные сообщения
+      if (errorMsg.contains('Пользователь не найден')) {
+        _error = 'Аккаунт с таким email не существует. Пожалуйста, зарегистрируйтесь.';
+      } else if (errorMsg.contains('Неверный пароль')) {
+        _error = 'Неверный пароль. Проверьте правильность ввода.';
+      } else {
+        _error = 'Ошибка входа: $errorMsg';
+      }
+      
+      debugPrint('Ошибка входа: $errorMsg');
       _isLoading = false;
       notifyListeners();
       return false;

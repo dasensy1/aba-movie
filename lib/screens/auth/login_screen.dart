@@ -72,20 +72,49 @@ class _LoginScreenState extends State<LoginScreen>
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     } else if (mounted && authProvider.error != null) {
+      // Очищаем предыдущие сообщения
+      ScaffoldMessenger.of(context).clearSnackBars();
+      
+      final error = authProvider.error!;
+      final isUserNotFound = error.contains('не существует');
+      final isWrongPassword = error.contains('Неверный пароль');
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.white),
+              Icon(
+                isUserNotFound 
+                    ? Icons.person_off_rounded 
+                    : isWrongPassword
+                        ? Icons.lock_outline_rounded
+                        : Icons.error_outline_rounded,
+                color: Colors.white,
+              ),
               const SizedBox(width: 12),
-              Expanded(child: Text(authProvider.error!)),
+              Expanded(child: Text(error)),
             ],
           ),
-          backgroundColor: ModernColors.error,
+          backgroundColor: isUserNotFound || isWrongPassword 
+              ? ModernColors.warning 
+              : ModernColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(ModernRadius.md),
           ),
+          duration: const Duration(seconds: 4),
+          action: isUserNotFound
+              ? SnackBarAction(
+                  label: 'Регистрация',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                    );
+                  },
+                )
+              : null,
         ),
       );
     }
