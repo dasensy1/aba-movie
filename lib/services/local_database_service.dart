@@ -48,14 +48,33 @@ class LocalDatabaseService {
   }
 
   Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'movie_tracker.db');
+    String path;
+    
+    if (kIsWeb) {
+      // Для веба используем специальное имя с версией
+      path = 'movie_tracker_v2.db';
+      debugPrint('Инициализация БД для WEB, путь: $path');
+    } else {
+      final dbPath = await getDatabasesPath();
+      path = join(dbPath, 'movie_tracker_v2.db');
+      debugPrint('Инициализация БД для DESKTOP, путь: $path');
+    }
 
+    debugPrint('Открываю базу данных...');
+    
     return await openDatabase(
       path,
       version: 6, // Новая схема с user-scoped данными
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        debugPrint('База данных успешно открыта!');
+        // Проверим что таблицы существуют
+        final tables = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table'",
+        );
+        debugPrint('Доступные таблицы: ${tables.map((t) => t['name']).join(', ')}');
+      },
     );
   }
 

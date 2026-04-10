@@ -19,8 +19,13 @@ void main() async {
 
   // Инициализация базы данных в зависимости от платформы
   if (kIsWeb) {
-    databaseFactory = databaseFactoryFfiWeb;
+    databaseFactory = createDatabaseFactoryFfiWeb(
+      options: SqfliteFfiWebOptions(
+        indexedDbName: 'movie_tracker_storage',
+      ),
+    );
   } else {
+    sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
 
