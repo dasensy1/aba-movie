@@ -59,11 +59,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   /// Загрузка полного описания из API (через MoviesProvider, не напрямую)
   Future<void> _loadFullDetails() async {
     if (_currentMovie.overview != null && _currentMovie.overview!.length > 50) return;
-    if (_currentMovie.imdbId == null) return;
 
     try {
       final moviesProvider = context.read<MoviesProvider>();
-      final fullMovie = await moviesProvider.getMovieDetails(_currentMovie.imdbId!);
+      final fullMovie = await moviesProvider.getMovieDetails(_currentMovie.id);
 
       if (fullMovie != null && mounted) {
         setState(() {

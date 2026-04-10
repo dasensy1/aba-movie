@@ -1,7 +1,9 @@
-/// Модель фильма (локальные данные)
+import 'genre.dart';
+
+/// Модель фильма (локальные данные + TMDb)
 class Movie {
   final int id;
-  final String? imdbId; // Добавили оригинальный ID для OMDb
+  final String? imdbId; // Оригинальный ID для OMDb (legacy)
   final String title;
   final String? overview;
   final String? posterPath;
@@ -10,11 +12,17 @@ class Movie {
   final int voteCount;
   final String? releaseDate;
   final List<int> genreIds;
+  final List<Genre>? genres; // Полный список жанров из TMDb
   final double? popularity;
   final String? tagline;
   final int? runtime;
   final String? status;
   final String? originalLanguage;
+  final String? originalTitle;
+  final double? budget;
+  final double? revenue;
+  final List<Map<String, dynamic>>? credits; // Актеры и съемочная группа
+  final List<String>? videos; // Трейлеры
 
   Movie({
     required this.id,
@@ -27,16 +35,56 @@ class Movie {
     required this.voteCount,
     this.releaseDate,
     required this.genreIds,
+    this.genres,
     this.popularity,
     this.tagline,
     this.runtime,
     this.status,
     this.originalLanguage,
+    this.originalTitle,
+    this.budget,
+    this.revenue,
+    this.credits,
+    this.videos,
   });
 
   factory Movie.fromJson(Map<String, dynamic> json) {
+    // Обработка genres
+    List<int> genreIds = [];
+    List<Genre>? genres;
+    
+    if (json['genre_ids'] != null) {
+      genreIds = List<int>.from(json['genre_ids']);
+    }
+    
+    if (json['genres'] != null) {
+      genres = (json['genres'] as List)
+          .map((g) => Genre.fromJson(g))
+          .toList();
+      if (genreIds.isEmpty) {
+        genreIds = genres.map((g) => g.id).toList();
+      }
+    }
+
+    // Обработка credits
+    List<Map<String, dynamic>>? credits;
+    if (json['credits'] != null && json['credits']['cast'] != null) {
+      credits = (json['credits']['cast'] as List)
+          .cast<Map<String, dynamic>>();
+    }
+
+    // Обработка videos
+    List<String>? videos;
+    if (json['videos'] != null && json['videos']['results'] != null) {
+      videos = (json['videos']['results'] as List)
+          .where((v) => v['site'] == 'YouTube' && v['type'] == 'Trailer')
+          .map((v) => v['key'].toString())
+          .toList();
+    }
+
     return Movie(
       id: json['id'] ?? 0,
+      imdbId: json['imdb_id'],
       title: json['title'] ?? json['name'] ?? 'Без названия',
       overview: json['overview'],
       posterPath: json['poster_path'],
@@ -44,19 +92,26 @@ class Movie {
       voteAverage: (json['vote_average'] ?? 0).toDouble(),
       voteCount: json['vote_count'] ?? 0,
       releaseDate: json['release_date'] ?? json['first_air_date'],
-      genreIds: json['genre_ids'] != null
-          ? List<int>.from(json['genre_ids'])
-          : [],
+      genreIds: genreIds,
+      genres: genres,
       popularity: (json['popularity'] ?? 0).toDouble(),
+      tagline: json['tagline'],
+      runtime: json['runtime'],
+      status: json['status'],
+      originalLanguage: json['original_language'],
+      originalTitle: json['original_title'],
+      budget: json['budget']?.toDouble(),
+      revenue: json['revenue']?.toDouble(),
+      credits: credits,
+      videos: videos,
     );
   }
 
-  /// Создание из OMDb API
+  /// Создание из OMDb API (legacy)
   factory Movie.fromOmdb(Map<String, dynamic> json) {
     String? releaseDate;
     if (json['Released'] != null && json['Released'] != 'N/A') {
       try {
-        // OMDb возвращает формат "DD Mon YYYY" (например "15 Jan 2024")
         final parts = json['Released'].toString().trim().split(' ');
         if (parts.length >= 3) {
           final year = parts.last;
@@ -97,8 +152,8 @@ class Movie {
     }
 
     String? posterUrl;
-    if (json['Poster'] != null && 
-        json['Poster'] != 'N/A' && 
+    if (json['Poster'] != null &&
+        json['Poster'] != 'N/A' &&
         json['Poster'].toString().trim().isNotEmpty) {
       posterUrl = json['Poster'].toString().trim();
     }
@@ -110,7 +165,7 @@ class Movie {
 
     return Movie(
       id: json['imdbID'] != null ? json['imdbID'].toString().hashCode : 0,
-      imdbId: json['imdbID'], // Сохраняем строку ttXXXXX
+      imdbId: json['imdbID'],
       title: json['Title'] ?? 'Без названия',
       overview: json['Plot'] == 'N/A' ? null : json['Plot'],
       posterPath: posterUrl,
@@ -127,15 +182,41 @@ class Movie {
     );
   }
 
+  /// Получить URL постера
   String get posterUrl {
     if (posterPath == null || posterPath!.isEmpty) return '';
     if (posterPath!.startsWith('http')) return posterPath!;
     return 'https://image.tmdb.org/t/p/w500$posterPath';
   }
 
+  /// Получить URL backdrop
   String get backdropUrl {
     if (backdropPath == null || backdropPath!.isEmpty) return '';
     return 'https://image.tmdb.org/t/p/original$backdropPath';
+  }
+
+  /// Получить список имен жанров
+  List<String> get genreNames {
+    if (genres != null && genres!.isNotEmpty) {
+      return genres!.map((g) => g.name).toList();
+    }
+    return [];
+  }
+
+  /// Получить главного актера
+  String? get mainActor {
+    if (credits != null && credits!.isNotEmpty) {
+      return credits![0]['name'].toString();
+    }
+    return null;
+  }
+
+  /// Получить трейлер YouTube
+  String? get youtubeTrailerKey {
+    if (videos != null && videos!.isNotEmpty) {
+      return videos![0];
+    }
+    return null;
   }
 
   List<int> get gradientColors {

@@ -37,11 +37,8 @@ class _SearchScreenState extends State<SearchScreen>
   late AnimationController _filterAnimationController;
   late Animation<double> _filterAnimation;
   
-  // Жанры для фильтрации
-  final List<String> _genres = [
-    'Все', 'Боевик', 'Комедия', 'Драма', 'Фантастика', 
-    'Триллер', 'Ужасы', 'Приключения', 'Детектив', 'Мелодрама'
-  ];
+  // Жанры для фильтрации (будут загружены из TMDb)
+  List<String> _genres = ['Все'];
   
   // История поиска
   final List<String> _recentSearches = [
@@ -59,6 +56,28 @@ class _SearchScreenState extends State<SearchScreen>
       parent: _filterAnimationController,
       curve: Curves.easeInOut,
     );
+    
+    // Загружаем жанры из TMDb
+    _loadGenres();
+  }
+
+  /// Загрузить жанры из TMDb
+  Future<void> _loadGenres() async {
+    try {
+      final moviesProvider = context.read<MoviesProvider>();
+      await moviesProvider.loadGenres();
+      
+      if (mounted) {
+        setState(() {
+          _genres = [
+            'Все',
+            ...moviesProvider.genres.map((g) => g.name).take(15),
+          ];
+        });
+      }
+    } catch (e) {
+      debugPrint('Ошибка загрузки жанров: $e');
+    }
   }
 
   @override
