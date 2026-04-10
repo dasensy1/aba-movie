@@ -79,34 +79,34 @@
 
 ### Таблицы
 
-**users** — локальные пользователи
+**users** -- локальные пользователи
 - id, email (UNIQUE), password_hash, display_name, photo_url, created_at, is_anonymous
 
-**user_settings** — настройки пользователя
+**user_settings** -- настройки пользователя
 - user_id (PK -> users), dark_theme, language
 
-**favorites** — избранные фильмы
+**favorites** -- избранные фильмы
 - id, user_id -> users, movie_id, данные фильма, added_at
 - UNIQUE(user_id, movie_id)
 - Индексы: idx_favorites_user, idx_favorites_movie
 
-**watchlist** — список просмотра
+**watchlist** -- список просмотра
 - id, user_id -> users, movie_id, imdb_id, title, poster_path, status, user_rating, notes, watched_date, added_date, watch_count
 - UNIQUE(user_id, movie_id)
 - Индексы: idx_watchlist_user, idx_watchlist_movie, idx_watchlist_status
 
-**watch_log** — лог просмотров
+**watch_log** -- лог просмотров
 - id, user_id -> users, movie_id, status, watch_date
 - Индексы: idx_watch_log_user, idx_watch_log_date
 
-**reviews** — обзоры
+**reviews** -- обзоры
 - id, user_id -> users, movie_id, user_name, rating, comment, created_at
 - Индексы: idx_reviews_user, idx_reviews_movie
 
-**settings** — общие настройки приложения (не привязаны к пользователю)
+**settings** -- общие настройки приложения (не привязаны к пользователю)
 - key (PK), value
 
-**history** — история просмотров (legacy)
+**history** -- история просмотров (legacy)
 - id, title, poster_path, viewed_at и другие поля
 
 ### Хранение данных
