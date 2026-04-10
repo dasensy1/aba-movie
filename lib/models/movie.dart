@@ -1,5 +1,3 @@
-import 'genre.dart';
-
 /// Модель фильма (локальные данные + TMDb)
 class Movie {
   final int id;
@@ -12,7 +10,7 @@ class Movie {
   final int voteCount;
   final String? releaseDate;
   final List<int> genreIds;
-  final List<Genre>? genres; // Полный список жанров из TMDb
+  final List<Map<String, dynamic>>? genres; // Полный список жанров из TMDb
   final double? popularity;
   final String? tagline;
   final int? runtime;
@@ -51,18 +49,16 @@ class Movie {
   factory Movie.fromJson(Map<String, dynamic> json) {
     // Обработка genres
     List<int> genreIds = [];
-    List<Genre>? genres;
+    List<Map<String, dynamic>>? genres;
     
     if (json['genre_ids'] != null) {
       genreIds = List<int>.from(json['genre_ids']);
     }
     
     if (json['genres'] != null) {
-      genres = (json['genres'] as List)
-          .map((g) => Genre.fromJson(g))
-          .toList();
+      genres = (json['genres'] as List).cast<Map<String, dynamic>>();
       if (genreIds.isEmpty) {
-        genreIds = genres.map((g) => g.id).toList();
+        genreIds = genres.map((g) => g['id'] as int).toList();
       }
     }
 
@@ -198,7 +194,7 @@ class Movie {
   /// Получить список имен жанров
   List<String> get genreNames {
     if (genres != null && genres!.isNotEmpty) {
-      return genres!.map((g) => g.name).toList();
+      return genres!.map((g) => g['name'] as String).toList();
     }
     return [];
   }

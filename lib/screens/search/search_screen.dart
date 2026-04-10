@@ -56,9 +56,15 @@ class _SearchScreenState extends State<SearchScreen>
       parent: _filterAnimationController,
       curve: Curves.easeInOut,
     );
-    
-    // Загружаем жанры из TMDb
-    _loadGenres();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Загружаем жанры только один раз при первой загрузке
+    if (_genres.length <= 1) {
+      _loadGenres();
+    }
   }
 
   /// Загрузить жанры из TMDb
@@ -68,11 +74,18 @@ class _SearchScreenState extends State<SearchScreen>
       await moviesProvider.loadGenres();
       
       if (mounted) {
+        debugPrint('=== ЗАГРУЖЕНЫ ЖАНРЫ ИЗ TMDB ===');
+        debugPrint('Всего жанров: ${moviesProvider.genres.length}');
+        moviesProvider.genres.forEach((g) {
+          debugPrint('  ID=${g.id}, Name=${g.name}');
+        });
+        
         setState(() {
           _genres = [
             'Все',
             ...moviesProvider.genres.map((g) => g.name).take(15),
           ];
+          debugPrint('Загружено ${_genres.length} жанров для UI: $_genres');
         });
       }
     } catch (e) {
@@ -130,16 +143,33 @@ class _SearchScreenState extends State<SearchScreen>
     bool? sortAscending,
   }) {
     final currentFilters = context.read<MoviesProvider>().filters;
+    
+    // Если выбран "Все", то сбрасываем жанр
+    final selectedGenre = (genre == null || genre == 'Все') ? '' : genre;
+    
+    debugPrint('========================================');
+    debugPrint('=== ПРИМЕНЕНИЕ ФИЛЬТРОВ ИЗ UI ===');
+    debugPrint('Выбранный жанр (из UI): "$genre"');
+    debugPrint('После обработки: "$selectedGenre"');
+    debugPrint('Рейтинг: $minRating');
+    debugPrint('Год: $minYear - $maxYear');
+    debugPrint('Сортировка: $sortBy (${sortAscending == true ? "возр" : "убыв"})');
+    debugPrint('Текущий searchQuery: "${currentFilters.searchQuery}"');
+    debugPrint('========================================');
+    
     final newFilters = currentFilters.copyWith(
-      selectedGenre: genre ?? (genre == 'Все' ? '' : genre),
-      minRating: minRating ?? currentFilters.minRating,
-      minYear: minYear ?? currentFilters.minYear,
-      maxYear: maxYear ?? currentFilters.maxYear,
+      selectedGenre: selectedGenre,
+      minRating: minRating ?? 0,
+      minYear: minYear,
+      maxYear: maxYear,
       sortBy: sortBy ?? currentFilters.sortBy,
       sortAscending: sortAscending ?? currentFilters.sortAscending,
     );
-    
+
+    debugPrint('Применяем фильтры к MoviesProvider...');
     context.read<MoviesProvider>().applyFilters(newFilters);
+    debugPrint('Фильтры применены');
+    debugPrint('========================================');
   }
 
   /// Сбросить все фильтры
@@ -152,15 +182,37 @@ class _SearchScreenState extends State<SearchScreen>
 
   /// Открыть панель фильтров как bottom sheet
   void _openFilterSheet() {
+    debugPrint('=== ОТКРЫТИЕ ПАНЕЛИ ФИЛЬТРОВ ===');
+    debugPrint('Доступно жанров: ${_genres.length}');
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _FilterSheet(
-        genres: _genres,
-        onApply: _applyFilters,
-        onReset: _resetFilters,
-      ),
+      builder: (context) {
+        debugPrint('Создаем _FilterSheet');
+        return _FilterSheet(
+          genres: _genres,
+          onApply: (
+            {String? genre,
+            double? minRating,
+            int? minYear,
+            int? maxYear,
+            String? sortBy,
+            bool? sortAscending}
+          ) {
+            _applyFilters(
+              genre: genre,
+              minRating: minRating,
+              minYear: minYear,
+              maxYear: maxYear,
+              sortBy: sortBy,
+              sortAscending: sortAscending,
+            );
+          },
+          onReset: _resetFilters,
+        );
+      },
     );
   }
 
@@ -643,6 +695,8 @@ class _FilterSheetState extends State<_FilterSheet> {
               onSelected: (selected) {
                 setState(() {
                   _selectedGenre = genre == 'Все' ? '' : genre;
+                  debugPrint('=== ВЫБРАН ЖАНР В UI ===');
+                  debugPrint('Выбран: "$genre" -> _selectedGenre="$_selectedGenre"');
                 });
               },
             );
@@ -940,6 +994,14 @@ class _FilterSheetState extends State<_FilterSheet> {
             flex: 2,
             child: ElevatedButton.icon(
               onPressed: () {
+                debugPrint('=== НАЖАТА КНОПКА "ПРИМЕНИТЬ" ===');
+                debugPrint('_selectedGenre: "$_selectedGenre"');
+                debugPrint('_minRating: $_minRating');
+                debugPrint('_minYear: $_minYear');
+                debugPrint('_maxYear: $_maxYear');
+                debugPrint('_sortBy: $_sortBy');
+                debugPrint('_sortAscending: $_sortAscending');
+                
                 widget.onApply(
                   genre: _selectedGenre,
                   minRating: _minRating,

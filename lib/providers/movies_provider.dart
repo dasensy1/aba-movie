@@ -139,12 +139,22 @@ class MoviesProvider with ChangeNotifier {
 
   /// Внутренний метод для применения фильтров
   void _applyFilters() {
+    debugPrint('=== ПРИМЕНЕНИЕ ФИЛЬТРОВ ===');
+    debugPrint('Всего результатов поиска: ${_searchResults.length}');
+    debugPrint('Фильтр - жанр: "${_filters.selectedGenre}"');
+    debugPrint('Фильтр - рейтинг: ${_filters.minRating}');
+    debugPrint('Фильтр - год: ${_filters.minYear} - ${_filters.maxYear}');
+    debugPrint('Фильтр - сортировка: ${_filters.sortBy} (${_filters.sortAscending ? "возр" : "убыв"})');
+    debugPrint('Загружено жанров из TMDb: ${_genres.length}');
+    
     if (_searchResults.isEmpty) {
       _filteredResults = [];
+      debugPrint('Результаты пустые - filteredResults очищен');
       return;
     }
 
     var filtered = _searchResults;
+    debugPrint('До фильтрации: ${filtered.length} фильмов');
 
     // Фильтр по жанру (используем genreIds из Movie)
     if (_filters.selectedGenre.isNotEmpty) {
@@ -153,12 +163,20 @@ class MoviesProvider with ChangeNotifier {
         (g) => g.name.toLowerCase() == _filters.selectedGenre.toLowerCase(),
         orElse: () => Genre(id: 0, name: ''),
       );
-      
+
+      debugPrint('Найден жанр "${_filters.selectedGenre}" с ID=${genre.id}');
+
       if (genre.id > 0) {
         filtered = filtered.where((movie) {
-          return movie.genreIds.contains(genre.id);
+          final hasGenre = movie.genreIds.contains(genre.id);
+          if (hasGenre) {
+            debugPrint('  ✓ ${movie.title} имеет жанр ID=${genre.id}');
+          }
+          return hasGenre;
         }).toList();
+        debugPrint('После фильтра по жанру: ${filtered.length} фильмов');
       } else {
+        debugPrint('Жанр не найден в списке TMDb, используем fallback поиск');
         // Fallback: ищем по названию в overview/title
         filtered = filtered.where((movie) {
           final overview = (movie.overview ?? '').toLowerCase();
@@ -166,6 +184,7 @@ class MoviesProvider with ChangeNotifier {
           return overview.contains(_filters.selectedGenre.toLowerCase()) ||
               title.contains(_filters.selectedGenre.toLowerCase());
         }).toList();
+        debugPrint('После fallback фильтра: ${filtered.length} фильмов');
       }
     }
 
@@ -174,6 +193,7 @@ class MoviesProvider with ChangeNotifier {
       filtered = filtered.where((movie) {
         return movie.voteAverage >= _filters.minRating;
       }).toList();
+      debugPrint('После фильтра по рейтингу: ${filtered.length} фильмов');
     }
 
     // Фильтр по году выпуска
@@ -193,6 +213,7 @@ class MoviesProvider with ChangeNotifier {
           return false;
         }
       }).toList();
+      debugPrint('После фильтра по году: ${filtered.length} фильмов');
     }
 
     // Сортировка
@@ -217,6 +238,7 @@ class MoviesProvider with ChangeNotifier {
     });
 
     _filteredResults = filtered;
+    debugPrint('=== ИТОГО после фильтрации: ${_filteredResults.length} фильмов ===');
   }
 
   /// Извлечь год из даты
@@ -299,7 +321,12 @@ class MoviesProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint('=== ЗАГРУЗКА ФИЛЬМОВ ПО ЖАНРУ ===');
+      debugPrint('Genre ID: $genreId');
+      
       _moviesByGenre = await _apiService.getMoviesByGenre(genreId);
+      debugPrint('Загружено ${_moviesByGenre.length} фильмов по жанру ID=$genreId');
+      
       _isLoadingGenre = false;
       notifyListeners();
     } catch (e) {

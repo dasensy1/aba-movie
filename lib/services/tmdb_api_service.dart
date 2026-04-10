@@ -11,7 +11,7 @@ class TmdbApiService {
   static final TmdbApiService _instance = TmdbApiService._internal();
   factory TmdbApiService() => _instance;
   TmdbApiService._internal();
-
+// a
   // TMDb API ключ (Bearer token)
   static const String _bearerToken = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI1MTBkZmEwMDc4MzIwYjEwZWRkZWE4NDA4N2NiYWQ1NCIsIm5iZiI6MTc3NTgwMDcwMS4wMTcsInN1YiI6IjY5ZDg5MTdkYzc2MmQ3M2NjMWJmZjBjZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.KwDLhT2Gg4KoC8S1HXMWjapB6xnliLzMbhP5rE0xacA';
   static const String _baseUrl = 'https://api.themoviedb.org/3';
@@ -206,9 +206,10 @@ class TmdbApiService {
   /// Получить список всех жанров
   Future<List<Genre>> getGenres() async {
     try {
-      debugPrint('TMDb Getting genres');
+      debugPrint('=== TMDB GET GENRES ===');
       
       final url = '$_baseUrl/genre/movie/list?language=ru-RU';
+      debugPrint('URL: $url');
       
       final response = await http.get(
         Uri.parse(url),
@@ -220,10 +221,16 @@ class TmdbApiService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        debugPrint('Response genres: ${data['genres']}');
+        
         if (data['genres'] != null) {
           final genres = data['genres'] as List;
-          return genres.map((item) => Genre.fromJson(item)).toList();
+          final genreList = genres.map((item) => Genre.fromJson(item)).toList();
+          debugPrint('Распарсено ${genreList.length} жанров');
+          return genreList;
         }
+      } else {
+        debugPrint('Error status: ${response.statusCode}');
       }
       return [];
     } catch (e) {
