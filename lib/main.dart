@@ -12,7 +12,7 @@ import 'providers/providers.dart';
 import 'screens/main_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'utils/config.dart';
-import 'utils/modern_ui.dart';
+import 'utils/modern_ui.dart' as ui;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -201,7 +201,7 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: ModernGradients.heroGradient,
+          gradient: ui.ModernGradients.heroGradient,
         ),
         child: Stack(
           children: [
@@ -220,9 +220,9 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            ModernColors.accentCyan.withValues(alpha: 0.3),
-                            ModernColors.accentCyan.withValues(alpha: 0.1),
-                            ModernColors.accentCyan.withValues(alpha: 0),
+                            ui.ModernColors.accentCyan.withValues(alpha: 0.3),
+                            ui.ModernColors.accentCyan.withValues(alpha: 0.1),
+                            ui.ModernColors.accentCyan.withValues(alpha: 0),
                           ],
                         ),
                       ),
@@ -246,9 +246,9 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            ModernColors.accentPink.withValues(alpha: 0.25),
-                            ModernColors.accentPink.withValues(alpha: 0.08),
-                            ModernColors.accentPink.withValues(alpha: 0),
+                            ui.ModernColors.accentPink.withValues(alpha: 0.25),
+                            ui.ModernColors.accentPink.withValues(alpha: 0.08),
+                            ui.ModernColors.accentPink.withValues(alpha: 0),
                           ],
                         ),
                       ),
@@ -281,8 +281,8 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                                       shape: BoxShape.circle,
                                       gradient: RadialGradient(
                                         colors: [
-                                          ModernColors.primaryPurple.withValues(alpha: 0.4),
-                                          ModernColors.primaryPurple.withValues(alpha: 0),
+                                          ui.ModernColors.primaryPurple.withValues(alpha: 0.4),
+                                          ui.ModernColors.primaryPurple.withValues(alpha: 0),
                                         ],
                                       ),
                                     ),
@@ -293,8 +293,8 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                                 padding: const EdgeInsets.all(28),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  gradient: ModernGradients.primaryGradient,
-                                  boxShadow: ModernShadows.purpleGlow,
+                                  gradient: ui.ModernGradients.primaryGradient,
+                                  boxShadow: ui.ModernShadows.purpleGlow,
                                 ),
                                 child: const Icon(
                                   Icons.movie_creation_rounded,

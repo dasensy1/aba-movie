@@ -3,17 +3,21 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Современная палитра цветов
 class ModernColors {
-  static const primaryPurple = Color(0xFF8B5CF6);
-  static const primaryPurpleDark = Color(0xFF7C3AED);
-  static const primaryPurpleLight = Color(0xFFA78BFA);
-  static const accentCyan = Color(0xFF06B6D4);
-  static const accentPink = Color(0xFFEC4899);
-  static const surfaceDark = Color(0xFF1E1B2E);
-  static const surfaceDarkHigher = Color(0xFF262340);
-  static const backgroundDark = Color(0xFF0F0D1A);
+  static const primaryPurple = Color(0xFF7C5CFC);
+  static const primaryPurpleDark = Color(0xFF5B3EEA);
+  static const primaryPurpleLight = Color(0xFFA993FF);
+  static const accentCyan = Color(0xFF36D7FF);
+  static const accentPink = Color(0xFFFF6FAE);
+  static const accentAmber = Color(0xFFFFC857);
+  static const surfaceDark = Color(0xFF171A2B);
+  static const surfaceDarkHigher = Color(0xFF22263B);
+  static const backgroundDark = Color(0xFF090B14);
+  static const backgroundDarkSoft = Color(0xFF101426);
+  static const borderSoft = Color(0x33FFFFFF);
   static const success = Color(0xFF10B981);
   static const warning = Color(0xFFF59E0B);
   static const error = Color(0xFFEF4444);
@@ -31,13 +35,13 @@ class ModernGradients {
 
   static const heroGradient = LinearGradient(
     colors: [
+      Color(0xFF20113A),
       ModernColors.primaryPurpleDark,
-      ModernColors.primaryPurple,
       ModernColors.accentCyan,
     ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    stops: [0.0, 0.5, 1.0],
+    stops: [0.0, 0.55, 1.0],
   );
 
   static const sunsetGradient = LinearGradient(
@@ -53,12 +57,14 @@ class ModernGradients {
   );
 
   static const darkBackgroundGradient = RadialGradient(
-    center: Alignment.topCenter,
-    radius: 1.5,
+    center: Alignment(-0.15, -0.95),
+    radius: 1.7,
     colors: [
-      ModernColors.surfaceDarkHigher,
+      Color(0xFF24203F),
+      ModernColors.backgroundDarkSoft,
       ModernColors.backgroundDark,
     ],
+    stops: [0.0, 0.45, 1.0],
   );
 
   // Градиент для кнопки
@@ -93,19 +99,19 @@ class ModernShadows {
   // Средняя тень
   static List<BoxShadow> get medium => [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.12),
-          blurRadius: 24,
-          offset: const Offset(0, 8),
+          color: Colors.black.withValues(alpha: 0.22),
+          blurRadius: 28,
+          offset: const Offset(0, 14),
         ),
       ];
 
   // Цветная тень (purple glow)
   static List<BoxShadow> get purpleGlow => [
         BoxShadow(
-          color: ModernColors.primaryPurple.withValues(alpha: 0.3),
-          blurRadius: 24,
+          color: ModernColors.primaryPurple.withValues(alpha: 0.28),
+          blurRadius: 32,
           spreadRadius: 2,
-          offset: const Offset(0, 8),
+          offset: const Offset(0, 10),
         ),
       ];
 
@@ -275,6 +281,145 @@ class ModernAnimations {
   static const Curve easeInOut = Curves.easeInOut;
   static const Curve bounceOut = Curves.easeOutBack;
   static const Curve elasticOut = Curves.easeOutBack;
+}
+
+class AppThemes {
+  static final ThemeData lightTheme = _buildTheme(Brightness.light);
+  static final ThemeData darkTheme = _buildTheme(Brightness.dark);
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+      scaffoldBackgroundColor:
+          isDark ? ModernColors.backgroundDark : const Color(0xFFF5F7FB),
+      colorScheme: ColorScheme.fromSeed(
+        brightness: brightness,
+        seedColor: ModernColors.primaryPurple,
+        primary: ModernColors.primaryPurple,
+        secondary: ModernColors.accentCyan,
+        surface: isDark ? ModernColors.surfaceDark : Colors.white,
+      ),
+    );
+
+    final textTheme = GoogleFonts.spaceGroteskTextTheme(base.textTheme).copyWith(
+      headlineLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 34,
+        fontWeight: FontWeight.w700,
+        color: isDark ? Colors.white : const Color(0xFF101426),
+      ),
+      headlineMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: isDark ? Colors.white : const Color(0xFF101426),
+      ),
+      titleLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: isDark ? Colors.white : const Color(0xFF111827),
+      ),
+      titleMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.white : const Color(0xFF111827),
+      ),
+      bodyLarge: GoogleFonts.dmSans(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        color: isDark ? Colors.white70 : const Color(0xFF374151),
+      ),
+      bodyMedium: GoogleFonts.dmSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: isDark ? Colors.white60 : const Color(0xFF4B5563),
+      ),
+      labelLarge: GoogleFonts.dmSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+      ),
+    );
+
+    return base.copyWith(
+      textTheme: textTheme,
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: textTheme.titleLarge,
+      ),
+      cardTheme: CardThemeData(
+        color: isDark ? ModernColors.surfaceDark : Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ModernRadius.lg),
+          side: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFE5E7EB),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : const Color(0xFFF3F4F6),
+        hintStyle: textTheme.bodyMedium,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFE5E7EB),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(
+            color: ModernColors.primaryPurple,
+            width: 1.4,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: ModernColors.primaryPurple,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: GoogleFonts.dmSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.white,
+        selectedColor: ModernColors.primaryPurple.withValues(alpha: 0.16),
+        side: BorderSide(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFE5E7EB),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+        ),
+        labelStyle: textTheme.bodyMedium,
+      ),
+    );
+  }
 }
 
 /// Утилиты для отступов

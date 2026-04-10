@@ -1,11 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+
 import '../models/movie.dart';
 import '../utils/modern_ui.dart';
-
-/// ============================================================================
-/// MOVIE CARD — Современный дизайн с glassmorphism
-/// ============================================================================
 
 class MovieCard extends StatefulWidget {
   final Movie movie;
@@ -27,9 +24,10 @@ class MovieCard extends StatefulWidget {
   State<MovieCard> createState() => _MovieCardState();
 }
 
-class _MovieCardState extends State<MovieCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+class _MovieCardState extends State<MovieCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
 
   @override
   void initState() {
@@ -38,7 +36,7 @@ class _MovieCardState extends State<MovieCard> with SingleTickerProviderStateMix
       duration: ModernAnimations.fast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
@@ -52,21 +50,25 @@ class _MovieCardState extends State<MovieCard> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
       onTap: widget.onTap,
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(scale: _scaleAnimation.value, child: child);
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: child,
+          );
         },
         child: SizedBox(
-          width: 150,
+          width: 178,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Постер
               _buildPoster(),
-              const SizedBox(height: ModernSpacing.sm),
-              // Информация
+              const SizedBox(height: 12),
               _buildInfo(),
             ],
           ),
@@ -76,98 +78,122 @@ class _MovieCardState extends State<MovieCard> with SingleTickerProviderStateMix
   }
 
   Widget _buildPoster() {
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(ModernRadius.md)),
-          child: AspectRatio(
-            aspectRatio: 2 / 3,
-            child: widget.movie.posterUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: widget.movie.posterUrl,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 300,
-                    memCacheHeight: 450,
-                    placeholder: (context, url) => _buildPlaceholder(),
-                    errorWidget: (context, url, error) => _buildGradientPlaceholder(),
-                  )
-                : _buildGradientPlaceholder(),
-          ),
-        ),
-        // Кнопка избранного
-        if (widget.onFavoriteTap != null)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: GestureDetector(
-              onTap: widget.onFavoriteTap,
-              child: AnimatedContainer(
-                duration: ModernAnimations.fast,
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: widget.isFavorite
-                      ? ModernColors.accentPink.withValues(alpha: 0.9)
-                      : Colors.black.withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
-                  boxShadow: widget.isFavorite ? ModernShadows.purpleGlow : [],
-                ),
-                child: Icon(
-                  widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: ModernShadows.medium,
+      ),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: AspectRatio(
+              aspectRatio: 0.72,
+              child: widget.movie.posterUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: widget.movie.posterUrl,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 360,
+                      memCacheHeight: 520,
+                      placeholder: (context, url) => _buildPlaceholder(),
+                      errorWidget: (context, url, error) =>
+                          _buildGradientPlaceholder(),
+                    )
+                  : _buildGradientPlaceholder(),
             ),
           ),
-        // Рейтинг
-        if (widget.showRating && widget.movie.voteAverage > 0)
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          Positioned.fill(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(ModernRadius.sm),
-                border: Border.all(
-                  color: _getRatingColor(widget.movie.voteAverage).withValues(alpha: 0.5),
-                  width: 1,
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.1),
+                    Colors.black.withValues(alpha: 0.45),
+                  ],
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.star_rounded,
-                    color: _getRatingColor(widget.movie.voteAverage),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    widget.movie.voteAverage.toStringAsFixed(1),
-                    style: TextStyle(
-                      color: _getRatingColor(widget.movie.voteAverage),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
-      ],
+          if (widget.onFavoriteTap != null)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: GestureDetector(
+                onTap: widget.onFavoriteTap,
+                child: AnimatedContainer(
+                  duration: ModernAnimations.fast,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: widget.isFavorite
+                        ? ModernColors.accentPink.withValues(alpha: 0.95)
+                        : Colors.black.withValues(alpha: 0.38),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                    boxShadow:
+                        widget.isFavorite ? ModernShadows.purpleGlow : null,
+                  ),
+                  child: Icon(
+                    widget.isFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          if (widget.showRating && widget.movie.voteAverage > 0)
+            Positioned(
+              left: 10,
+              bottom: 10,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.48),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      color: _getRatingColor(widget.movie.voteAverage),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.movie.voteAverage.toStringAsFixed(1),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildPlaceholder() {
-    return const SizedBox.square(
-      dimension: 100,
-      child: Center(
-        child: Icon(
-          Icons.movie_creation_outlined,
-          color: Colors.white54,
-          size: 32,
-        ),
+    return const Center(
+      child: Icon(
+        Icons.movie_creation_outlined,
+        color: Colors.white54,
+        size: 32,
       ),
     );
   }
@@ -205,31 +231,22 @@ class _MovieCardState extends State<MovieCard> with SingleTickerProviderStateMix
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
               color: Colors.white,
-              height: 1.3,
-              letterSpacing: 0.1,
+              height: 1.28,
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               if (widget.movie.releaseYear.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    widget.movie.releaseYear,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white60,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                _InfoPill(label: widget.movie.releaseYear),
+              if (widget.movie.voteAverage > 0)
+                _InfoPill(
+                  label: '${widget.movie.voteAverage.toStringAsFixed(1)} IMDb',
                 ),
             ],
           ),
@@ -245,11 +262,7 @@ class _MovieCardState extends State<MovieCard> with SingleTickerProviderStateMix
   }
 }
 
-/// ============================================================================
-/// MOVIE CARD VERTICAL — Современный дизайн
-/// ============================================================================
-
-class MovieCardVertical extends StatefulWidget {
+class MovieCardVertical extends StatelessWidget {
   final Movie movie;
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteTap;
@@ -264,104 +277,105 @@ class MovieCardVertical extends StatefulWidget {
   });
 
   @override
-  State<MovieCardVertical> createState() => _MovieCardVerticalState();
-}
-
-class _MovieCardVerticalState extends State<MovieCardVertical> {
-  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: onTap,
       child: AnimatedContainer(
         duration: ModernAnimations.fast,
-        margin: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: ModernColors.surfaceDark,
-          borderRadius: BorderRadius.circular(ModernRadius.md),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.06),
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          boxShadow: ModernShadows.soft,
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(ModernRadius.md),
+          borderRadius: BorderRadius.circular(22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Постер
-              Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 2 / 3,
-                    child: widget.movie.posterUrl.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: widget.movie.posterUrl,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 300,
-                            memCacheHeight: 450,
-                            placeholder: (context, url) => _buildPlaceholder(),
-                            errorWidget: (context, url, error) => _buildGradientPlaceholder(),
-                          )
-                        : _buildGradientPlaceholder(),
-                  ),
-                  if (widget.onFavoriteTap != null)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: widget.onFavoriteTap,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: widget.isFavorite
-                                ? ModernColors.accentPink.withValues(alpha: 0.9)
-                                : Colors.black.withValues(alpha: 0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            color: Colors.white,
-                            size: 18,
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: movie.posterUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: movie.posterUrl,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 320,
+                              memCacheHeight: 500,
+                              placeholder: (context, url) => _placeholder(),
+                              errorWidget: (context, url, error) =>
+                                  _gradientPlaceholder(),
+                            )
+                          : _gradientPlaceholder(),
+                    ),
+                    if (onFavoriteTap != null)
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: GestureDetector(
+                          onTap: onFavoriteTap,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isFavorite
+                                  ? ModernColors.accentPink
+                                  : Colors.black.withValues(alpha: 0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isFavorite
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-              // Информация
               Padding(
-                padding: const EdgeInsets.all(ModernSpacing.sm),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.movie.title,
+                      movie.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                         color: Colors.white,
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
-                        if (widget.movie.voteAverage > 0) ...[
+                        if (movie.voteAverage > 0)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: ModernColors.warning.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
+                              color: ModernColors.warning.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(999),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.star_rounded, color: ModernColors.warning, size: 13),
-                                const SizedBox(width: 3),
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: ModernColors.warning,
+                                  size: 13,
+                                ),
+                                const SizedBox(width: 4),
                                 Text(
-                                  widget.movie.voteAverage.toStringAsFixed(1),
+                                  movie.voteAverage.toStringAsFixed(1),
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -371,11 +385,10 @@ class _MovieCardVerticalState extends State<MovieCardVertical> {
                               ],
                             ),
                           ),
-                        ],
                         const Spacer(),
-                        if (widget.movie.releaseYear.isNotEmpty)
+                        if (movie.releaseYear.isNotEmpty)
                           Text(
-                            widget.movie.releaseYear,
+                            movie.releaseYear,
                             style: const TextStyle(
                               fontSize: 11,
                               color: Colors.white54,
@@ -393,28 +406,25 @@ class _MovieCardVerticalState extends State<MovieCardVertical> {
     );
   }
 
-  Widget _buildPlaceholder() {
-    return const SizedBox.square(
-      dimension: 100,
-      child: Center(
-        child: Icon(
-          Icons.movie_creation_outlined,
-          color: Colors.white54,
-          size: 32,
-        ),
+  Widget _placeholder() {
+    return const Center(
+      child: Icon(
+        Icons.movie_creation_outlined,
+        color: Colors.white54,
+        size: 32,
       ),
     );
   }
 
-  Widget _buildGradientPlaceholder() {
+  Widget _gradientPlaceholder() {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(widget.movie.gradientColors[0]),
-            Color(widget.movie.gradientColors[1]),
+            Color(movie.gradientColors[0]),
+            Color(movie.gradientColors[1]),
           ],
         ),
       ),
@@ -423,6 +433,32 @@ class _MovieCardVerticalState extends State<MovieCardVertical> {
           Icons.movie_creation_rounded,
           color: Colors.white.withValues(alpha: 0.5),
           size: 40,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final String label;
+
+  const _InfoPill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          color: Colors.white70,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

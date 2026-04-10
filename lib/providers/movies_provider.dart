@@ -3,14 +3,11 @@ import '../models/models.dart';
 import '../services/services.dart';
 
 /// ============================================================================
-/// MOVIES PROVIDER (OMDb API + DEMO)
-/// ============================================================================
-/// Провайдер для управления состоянием фильмов
-/// Работает с OMDb API и демо-данными
+/// MOVIES PROVIDER (TMDB API + DEMO fallback)
 /// ============================================================================
 
 class MoviesProvider with ChangeNotifier {
-  final OmdbApiService _apiService = OmdbApiService();
+  final TmdbApiService _apiService = TmdbApiService();
   final DemoDataService _demoService = DemoDataService();
 
   List<Movie> _trendingMovies = [];
@@ -20,16 +17,19 @@ class MoviesProvider with ChangeNotifier {
   List<Movie> _moviesByGenre = [];
   List<Genre> _genres = [];
 
-  // Разделённые loading-флаги для каждой операции
   bool _isLoadingTrending = false;
   bool _isLoadingSearch = false;
   bool _isLoadingPopular = false;
   bool _isLoadingTopRated = false;
   bool _isLoadingGenre = false;
-  final bool _isLoadingMore = false;
   String? _error;
   String _searchQuery = '';
   int _selectedGenreId = 0;
+
+  // Filters
+  int? _filterYear;
+  String? _filterGenre;
+  String _filterSortBy = 'popularity.desc';
 
   // Getters
   List<Movie> get trendingMovies => _trendingMovies;
@@ -38,42 +38,49 @@ class MoviesProvider with ChangeNotifier {
   List<Movie> get topRatedMovies => _topRatedMovies;
   List<Movie> get moviesByGenre => _moviesByGenre;
   List<Genre> get genres => _genres;
-  // Общий флаг — true если любая операция грузится
   bool get isLoading => _isLoadingTrending || _isLoadingSearch || _isLoadingPopular || _isLoadingTopRated || _isLoadingGenre;
   bool get isLoadingTrending => _isLoadingTrending;
   bool get isLoadingSearch => _isLoadingSearch;
   bool get isLoadingPopular => _isLoadingPopular;
   bool get isLoadingTopRated => _isLoadingTopRated;
   bool get isLoadingGenre => _isLoadingGenre;
-  bool get isLoadingMore => _isLoadingMore;
   String? get error => _error;
   String get searchQuery => _searchQuery;
   int get selectedGenreId => _selectedGenreId;
 
-  /// ============================================================================
-  /// TRENDING FILMS (Now from OMDb API)
-  /// ============================================================================
+  // Filter getters
+  int? get filterYear => _filterYear;
+  String? get filterGenre => _filterGenre;
+  String get filterSortBy => _filterSortBy;
+
+  /// TRENDING FILMS
   Future<void> loadTrendingMovies() async {
     _isLoadingTrending = true;
     _error = null;
     notifyListeners();
 
     try {
-      _trendingMovies = await _apiService.getPopularMovies();
+      _trendingMovies = await _apiService.getTrendingMovies();
+      if (_trendingMovies.isEmpty) {
+        _trendingMovies = _demoService.getTrendingMovies();
+      }
       _isLoadingTrending = false;
       notifyListeners();
     } catch (e) {
+      _trendingMovies = _demoService.getTrendingMovies();
       _error = 'Ошибка загрузки трендов: $e';
       _isLoadingTrending = false;
       notifyListeners();
     }
   }
 
-  /// ============================================================================
-  /// ПОИСК (OMDb API)
-  /// ============================================================================
-  Future<void> searchMovies(String query) async {
-    if (query.trim().isEmpty) {
+  /// ПОИСК с фильтрами
+  Future<void> searchMovies(String query, {int? year, String? genre, String? sortBy}) async {
+    _filterYear = year ?? _filterYear;
+    _filterGenre = genre ?? _filterGenre;
+    _filterSortBy = sortBy ?? _filterSortBy;
+
+    if (query.trim().isEmpty && (_filterYear == null && _filterGenre == null)) {
       _searchResults = [];
       _searchQuery = '';
       notifyListeners();
@@ -86,74 +93,116 @@ class MoviesProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _searchResults = await _apiService.searchMovies(query);
+      _searchResults = await _apiService.searchMovies(
+        query,
+        year: _filterYear,
+        genre: _filterGenre,
+        sortBy: _filterSortBy,
+      );
       _isLoadingSearch = false;
       notifyListeners();
     } catch (e) {
+      // Fallback на демо-данные
+      _searchResults = _demoService.searchMovies(query);
       _error = 'Ошибка поиска: $e';
       _isLoadingSearch = false;
       notifyListeners();
     }
   }
 
+  /// Сбросить фильтры
+  void resetFilters() {
+    _filterYear = null;
+    _filterGenre = null;
+    _filterSortBy = 'popularity.desc';
+    notifyListeners();
+  }
+
+  /// Установить фильтр по году
+  void setYearFilter(int? year) {
+    _filterYear = year;
+    notifyListeners();
+  }
+
+  /// Установить фильтр по жанру
+  void setGenreFilter(String? genreId) {
+    _filterGenre = genreId;
+    notifyListeners();
+  }
+
+  /// Установить сортировку
+  void setSortBy(String sortBy) {
+    _filterSortBy = sortBy;
+    notifyListeners();
+  }
+
   /// Очистить поиск
   void clearSearch() {
     _searchResults = [];
     _searchQuery = '';
+    _filterYear = null;
+    _filterGenre = null;
+    _filterSortBy = 'popularity.desc';
     notifyListeners();
   }
 
-  /// ============================================================================
-  /// POPULAR FILMS (Now from OMDb API)
-  /// ============================================================================
+  /// POPULAR FILMS
   Future<void> loadPopularMovies() async {
     _isLoadingPopular = true;
     _error = null;
     notifyListeners();
 
     try {
-      _popularMovies = await _apiService.searchMovies('Marvel');
+      _popularMovies = await _apiService.getPopularMovies();
+      if (_popularMovies.isEmpty) {
+        _popularMovies = _demoService.getPopularMovies();
+      }
       _isLoadingPopular = false;
       notifyListeners();
     } catch (e) {
+      _popularMovies = _demoService.getPopularMovies();
       _error = 'Ошибка загрузки популярных: $e';
       _isLoadingPopular = false;
       notifyListeners();
     }
   }
 
-  /// ============================================================================
-  /// TOP RATED FILMS (Now from OMDb API)
-  /// ============================================================================
+  /// TOP RATED FILMS
   Future<void> loadTopRatedMovies() async {
     _isLoadingTopRated = true;
     _error = null;
     notifyListeners();
 
     try {
-      _topRatedMovies = await _apiService.searchMovies('Star Wars');
+      _topRatedMovies = await _apiService.getTopRatedMovies();
+      if (_topRatedMovies.isEmpty) {
+        _topRatedMovies = _demoService.getTopRatedMovies();
+      }
       _isLoadingTopRated = false;
       notifyListeners();
     } catch (e) {
+      _topRatedMovies = _demoService.getTopRatedMovies();
       _error = 'Ошибка загрузки лучших: $e';
       _isLoadingTopRated = false;
       notifyListeners();
     }
   }
 
-  /// ============================================================================
-  /// ЖАНРЫ
-  /// ============================================================================
+  /// ЖАНРЫ из TMDB
   Future<void> loadGenres() async {
     _isLoadingTrending = true;
     _error = null;
     notifyListeners();
 
     try {
-      _genres = _demoService.demoGenres;
+      _genres = await _apiService.getGenres();
+      if (_genres.isEmpty) {
+        _genres = _demoService.demoGenres;
+      }
       _isLoadingTrending = false;
       notifyListeners();
     } catch (e) {
+      _genres = _demoService.demoGenres;
       _error = 'Ошибка загрузки жанров: $e';
       _isLoadingTrending = false;
       notifyListeners();
@@ -168,15 +217,11 @@ class MoviesProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      String query = 'action';
-      if (genreId == 1) query = 'action';
-      if (genreId == 2) query = 'comedy';
-      if (genreId == 3) query = 'drama';
-
-      _moviesByGenre = await _apiService.searchMovies(query);
+      _moviesByGenre = await _apiService.getMoviesByGenre(genreId);
       _isLoadingGenre = false;
       notifyListeners();
     } catch (e) {
+      _moviesByGenre = _demoService.getMoviesByGenre(genreId);
       _error = 'Ошибка загрузки фильмов: $e';
       _isLoadingGenre = false;
       notifyListeners();
@@ -190,10 +235,10 @@ class MoviesProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Получить детали фильма по IMDB ID (через провайдер, не напрямую API)
-  Future<Movie?> getMovieDetails(String imdbId) async {
+  /// Получить детали фильма
+  Future<Movie?> getMovieDetails(int tmdbId) async {
     try {
-      return await _apiService.getMovieDetails(imdbId);
+      return await _apiService.getMovieDetails(tmdbId);
     } catch (e) {
       debugPrint('MoviesProvider getMovieDetails error: $e');
       return null;

@@ -1,7 +1,7 @@
-/// Модель фильма (локальные данные)
+/// Модель фильма (локальные данные + TMDB API)
 class Movie {
   final int id;
-  final String? imdbId; // Добавили оригинальный ID для OMDb
+  final String? imdbId;
   final String title;
   final String? overview;
   final String? posterPath;
@@ -51,79 +51,45 @@ class Movie {
     );
   }
 
-  /// Создание из OMDb API
-  factory Movie.fromOmdb(Map<String, dynamic> json) {
-    String? releaseDate;
-    if (json['Released'] != null && json['Released'] != 'N/A') {
-      try {
-        // OMDb возвращает формат "DD Mon YYYY" (например "15 Jan 2024")
-        final parts = json['Released'].toString().trim().split(' ');
-        if (parts.length >= 3) {
-          final year = parts.last;
-          final monthStr = parts[parts.length - 2];
-          final day = parts[0];
-
-          const months = {
-            'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
-            'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
-            'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12',
-          };
-
-          final month = months[monthStr] ?? '01';
-          releaseDate = '$year-$month-${day.padLeft(2, '0')}';
-        }
-      } catch (e) {
-        releaseDate = null;
-      }
-    }
-
+  /// Создание из TMDB API ответа
+  factory Movie.fromTmdb(Map<String, dynamic> json) {
     double voteAverage = 0.0;
-    if (json['imdbRating'] != null && json['imdbRating'] != 'N/A') {
-      try {
-        voteAverage = double.parse(json['imdbRating'].toString().split('/').first);
-      } catch (e) {
-        voteAverage = 0.0;
-      }
+    if (json['vote_average'] != null) {
+      voteAverage = (json['vote_average'] as num).toDouble();
     }
 
     int voteCount = 0;
-    if (json['imdbVotes'] != null && json['imdbVotes'] != 'N/A') {
-      try {
-        final votes = json['imdbVotes'].toString().replaceAll(',', '');
-        voteCount = int.tryParse(votes) ?? 0;
-      } catch (e) {
-        voteCount = 0;
-      }
-    }
-
-    String? posterUrl;
-    if (json['Poster'] != null && 
-        json['Poster'] != 'N/A' && 
-        json['Poster'].toString().trim().isNotEmpty) {
-      posterUrl = json['Poster'].toString().trim();
+    if (json['vote_count'] != null) {
+      voteCount = json['vote_count'] as int;
     }
 
     int? runtime;
-    if (json['Runtime'] != null && json['Runtime'] != 'N/A') {
-      runtime = int.tryParse(json['Runtime'].toString().replaceAll(' min', ''));
+    if (json['runtime'] != null) {
+      runtime = json['runtime'] as int;
     }
 
     return Movie(
-      id: json['imdbID'] != null ? json['imdbID'].toString().hashCode : 0,
-      imdbId: json['imdbID'], // Сохраняем строку ttXXXXX
-      title: json['Title'] ?? 'Без названия',
-      overview: json['Plot'] == 'N/A' ? null : json['Plot'],
-      posterPath: posterUrl,
-      backdropPath: null,
+      id: json['id'] ?? 0,
+      imdbId: json['imdb_id'],
+      title: json['title'] ?? json['name'] ?? 'Без названия',
+      overview: json['overview'],
+      posterPath: json['poster_path'],
+      backdropPath: json['backdrop_path'],
       voteAverage: voteAverage,
       voteCount: voteCount,
-      releaseDate: releaseDate,
-      genreIds: [],
-      popularity: 0.0,
-      tagline: null,
+      releaseDate: json['release_date'] ?? json['first_air_date'],
+      genreIds: json['genre_ids'] != null
+          ? List<int>.from(json['genre_ids'])
+          : (json['genres'] != null
+              ? (json['genres'] as List).map((g) => g['id'] as int).toList()
+              : []),
+      popularity: json['popularity'] != null
+          ? (json['popularity'] as num).toDouble()
+          : 0.0,
+      tagline: json['tagline'],
       runtime: runtime,
-      status: json['Response'] == 'True' ? 'Вышел' : null,
-      originalLanguage: null,
+      status: json['status'],
+      originalLanguage: json['original_language'],
     );
   }
 
@@ -136,6 +102,14 @@ class Movie {
   String get backdropUrl {
     if (backdropPath == null || backdropPath!.isEmpty) return '';
     return 'https://image.tmdb.org/t/p/original$backdropPath';
+  }
+
+  /// Синопсис фильма (описание)
+  String get synopsis {
+    if (overview == null || overview!.trim().isEmpty) {
+      return 'Синопсис отсутствует.';
+    }
+    return overview!.trim();
   }
 
   List<int> get gradientColors {
