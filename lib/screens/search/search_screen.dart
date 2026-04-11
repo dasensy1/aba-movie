@@ -48,6 +48,16 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
+    // Инициализируем контроллер с текстом из стейта, если мы пришли сюда из глобального поиска
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final query = context.read<MoviesProvider>().searchQuery;
+        if (query.isNotEmpty && _searchController.text.isEmpty) {
+          _searchController.text = query;
+        }
+      }
+    });
+
     _filterAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -503,33 +513,41 @@ class _SearchScreenState extends State<SearchScreen>
         
         // Сетка фильмов
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.55,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: movies.length,
-            itemBuilder: (context, index) {
-              final movie = movies[index];
-              return Consumer<FavoritesProvider>(
-                builder: (context, favorites, _) {
-                  final isFav = favorites.favorites.any((m) => m.id == movie.id);
-                  return MovieCardVertical(
-                    movie: movie,
-                    isFavorite: isFav,
-                    onFavoriteTap: () {
-                      final auth = context.read<AuthProvider>();
-                      favorites.toggleFavorite(movie, auth.userId);
-                    },
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MovieDetailScreen(movie: movie),
-                        ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              // Адаптивное количество колонок: 2-3 на телефонах, 4-6 на десктопах
+              final crossAxisCount = width >= 1200 ? 6 : width >= 900 ? 5 : width >= 600 ? 4 : 3;
+              
+              return GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: 0.65, // Более компактно
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: movies.length,
+                itemBuilder: (context, index) {
+                  final movie = movies[index];
+                  return Consumer<FavoritesProvider>(
+                    builder: (context, favorites, _) {
+                      final isFav = favorites.favorites.any((m) => m.id == movie.id);
+                      return MovieCardVertical(
+                        movie: movie,
+                        isFavorite: isFav,
+                        onFavoriteTap: () {
+                          final auth = context.read<AuthProvider>();
+                          favorites.toggleFavorite(movie, auth.userId);
+                        },
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MovieDetailScreen(movie: movie),
+                            ),
+                          );
+                        },
                       );
                     },
                   );

@@ -36,6 +36,8 @@ class MoviesProvider with ChangeNotifier {
   String? _error;
   String _searchQuery = '';
   int _selectedGenreId = 0;
+  int _genrePage = 1;
+  bool _isLoadingMoreGenre = false;
 
   // Getters
   List<Movie> get trendingMovies => _trendingMovies;
@@ -56,6 +58,7 @@ class MoviesProvider with ChangeNotifier {
   bool get isLoadingTopRated => _isLoadingTopRated;
   bool get isLoadingGenre => _isLoadingGenre;
   bool get isLoadingMore => _isLoadingMore;
+  bool get isLoadingMoreGenre => _isLoadingMoreGenre;
   String? get error => _error;
   String get searchQuery => _searchQuery;
   int get selectedGenreId => _selectedGenreId;
@@ -318,13 +321,14 @@ class MoviesProvider with ChangeNotifier {
     _isLoadingGenre = true;
     _error = null;
     _selectedGenreId = genreId;
+    _genrePage = 1;
     notifyListeners();
 
     try {
       debugPrint('=== ЗАГРУЗКА ФИЛЬМОВ ПО ЖАНРУ ===');
       debugPrint('Genre ID: $genreId');
       
-      _moviesByGenre = await _apiService.getMoviesByGenre(genreId);
+      _moviesByGenre = await _apiService.getMoviesByGenre(genreId, page: _genrePage);
       debugPrint('Загружено ${_moviesByGenre.length} фильмов по жанру ID=$genreId');
       
       _isLoadingGenre = false;
@@ -336,10 +340,31 @@ class MoviesProvider with ChangeNotifier {
     }
   }
 
+  /// Подгрузка следующей страницы фильмов по жанру
+  Future<void> loadMoreMoviesByGenre() async {
+    if (_isLoadingMoreGenre || _selectedGenreId <= 0) return;
+    
+    _isLoadingMoreGenre = true;
+    _genrePage++;
+    notifyListeners();
+
+    try {
+      final newMovies = await _apiService.getMoviesByGenre(_selectedGenreId, page: _genrePage);
+      _moviesByGenre.addAll(newMovies);
+      _isLoadingMoreGenre = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Ошибка подгрузки фильмов: $e';
+      _isLoadingMoreGenre = false;
+      notifyListeners();
+    }
+  }
+
   /// Очистить фильмы по жанру
   void clearMoviesByGenre() {
     _moviesByGenre = [];
     _selectedGenreId = 0;
+    _genrePage = 1;
     notifyListeners();
   }
 

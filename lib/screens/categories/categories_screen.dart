@@ -61,7 +61,6 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> with TickerProviderStateMixin {
-  int? _selectedGenreId;
   late AnimationController _gridAnimationController;
   late Animation<double> _gridAnimation;
 
@@ -94,12 +93,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
   }
 
   void _onGenreSelected(int genreId, String genreName) {
-    setState(() => _selectedGenreId = genreId);
     context.read<MoviesProvider>().loadMoviesByGenre(genreId);
   }
 
   void _clearSelection() {
-    setState(() => _selectedGenreId = null);
     context.read<MoviesProvider>().clearMoviesByGenre();
   }
 
@@ -121,7 +118,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
                     if (moviesProvider.isLoading && moviesProvider.genres.isEmpty) {
                       return _buildLoadingSection();
                     }
-                    if (_selectedGenreId != null) {
+                    if (moviesProvider.selectedGenreId > 0) {
                       return _buildMoviesByGenre(moviesProvider);
                     }
                     return _buildGenresGrid(moviesProvider);
@@ -136,6 +133,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
   }
 
   Widget _buildAppBar() {
+    final selectedGenreId = context.watch<MoviesProvider>().selectedGenreId;
     return SliverAppBar(
       floating: true,
       snap: true,
@@ -154,13 +152,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
           ),
           const SizedBox(width: 12),
           Text(
-            _selectedGenreId != null ? 'Категория' : 'Жанры',
+            selectedGenreId > 0 ? 'Категория' : 'Жанры',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
           ),
         ],
       ),
       actions: [
-        if (_selectedGenreId != null)
+        if (selectedGenreId > 0)
           Container(
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
@@ -240,7 +238,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
     }
 
     final selectedGenre = moviesProvider.genres.firstWhere(
-      (g) => g.id == _selectedGenreId,
+      (g) => g.id == moviesProvider.selectedGenreId,
       orElse: () => moviesProvider.genres.first,
     );
 
@@ -281,36 +279,70 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
         // Movies grid
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: ModernSpacing.lg),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.55,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: moviesProvider.moviesByGenre.length,
-            itemBuilder: (context, index) {
-              final movie = moviesProvider.moviesByGenre[index];
-              return Consumer<FavoritesProvider>(
-                builder: (context, favorites, _) {
-                  final auth = context.read<AuthProvider>();
-                  final isFav = favorites.favorites.any((m) => m.id == movie.id);
-                  return MovieCardVertical(
-                    movie: movie,
-                    isFavorite: isFav,
-                    onFavoriteTap: () => favorites.toggleFavorite(movie, auth.userId),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie)),
-                    ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final crossAxisCount = width >= 1200 ? 6 : width >= 900 ? 5 : width >= 600 ? 4 : 3;
+              
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: 0.65,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: moviesProvider.moviesByGenre.length,
+                itemBuilder: (context, index) {
+                  final movie = moviesProvider.moviesByGenre[index];
+                  return Consumer<FavoritesProvider>(
+                    builder: (context, favorites, _) {
+                      final auth = context.read<AuthProvider>();
+                      final isFav = favorites.favorites.any((m) => m.id == movie.id);
+                      return MovieCardVertical(
+                        movie: movie,
+                        isFavorite: isFav,
+                        onFavoriteTap: () => favorites.toggleFavorite(movie, auth.userId),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie)),
+                        ),
+                      );
+                    },
                   );
                 },
               );
             },
           ),
         ),
+        const SizedBox(height: 32),
+        if (moviesProvider.moviesByGenre.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: ModernSpacing.lg),
+            child: Center(
+              child: SizedBox(
+                width: 250,
+                child: ElevatedButton(
+                  onPressed: moviesProvider.isLoadingMoreGenre
+                      ? null
+                      : () => moviesProvider.loadMoreMoviesByGenre(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ModernColors.primaryPurple,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ModernRadius.md)),
+                  ),
+                  child: moviesProvider.isLoadingMoreGenre
+                      ? const SizedBox(
+                          width: 20, 
+                          height: 20, 
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                        )
+                      : const Text('Показать еще', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
+            ),
+          ),
         const SizedBox(height: 40),
       ],
     );

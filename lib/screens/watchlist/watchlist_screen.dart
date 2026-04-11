@@ -381,6 +381,16 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                       ),
                     ),
                     const PopupMenuItem(
+                      value: 'change_rating',
+                      child: Row(
+                        children: [
+                          Icon(Icons.star_border, size: 20, color: Colors.amber),
+                          SizedBox(width: 12),
+                          Text('Оценить фильм'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
                       value: 'remove',
                       child: Row(
                         children: [
@@ -426,6 +436,9 @@ class _WatchlistScreenState extends State<WatchlistScreen>
         if (newStatus != null) {
           await provider.updateStatus(movie.movieId, newStatus, auth.userId);
         }
+        break;
+      case 'change_rating':
+        await _changeRating(movie);
         break;
       case 'remove':
         await provider.removeFromWatchlist(movie.movieId, auth.userId);
@@ -475,6 +488,77 @@ class _WatchlistScreenState extends State<WatchlistScreen>
         auth.userId,
         watchedDate: pickedDate,
       );
+    }
+  }
+
+  Future<void> _changeRating(WatchlistMovie movie) async {
+    final auth = context.read<AuthProvider>();
+    double _currentValue = movie.userRating ?? 0.0;
+    
+    final newRating = await showModalBottomSheet<double>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Поставьте оценку', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 36),
+                    const SizedBox(width: 12),
+                    Text(
+                      _currentValue > 0 ? _currentValue.toStringAsFixed(1) : '—',
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.amber),
+                    ),
+                    const Text(' / 10', style: TextStyle(fontSize: 20, color: Colors.grey)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Slider(
+                  value: _currentValue,
+                  min: 0,
+                  max: 10,
+                  divisions: 20,
+                  activeColor: Colors.amber,
+                  inactiveColor: Colors.grey[800],
+                  onChanged: (val) {
+                    setModalState(() {
+                      _currentValue = val;
+                    });
+                  },
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, _currentValue),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C4DFF),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Сохранить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    if (newRating != null && mounted) {
+      await context.read<WatchlistProvider>().updateRating(movie.movieId, newRating, auth.userId);
     }
   }
 

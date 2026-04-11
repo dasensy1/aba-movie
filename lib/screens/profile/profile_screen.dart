@@ -10,7 +10,9 @@ import '../auth/login_screen.dart';
 /// ============================================================================
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final Function(int)? onNavigateToTab;
+
+  const ProfileScreen({super.key, this.onNavigateToTab});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -154,32 +156,35 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         final stats = provider.getStatistics();
         return Row(
           children: [
-            _buildStatCard('Фильмов', '${stats['total']}', const Color(0xFF7C4DFF)),
+            _buildStatCard('Фильмов', '${stats['total']}', const Color(0xFF7C4DFF), onTap: () => widget.onNavigateToTab?.call(3)),
             const SizedBox(width: 12),
-            _buildStatCard('Просмотров', '${stats['totalWatches']}', const Color(0xFF00E5FF)),
+            _buildStatCard('Просмотров', '${stats['totalWatches']}', const Color(0xFF00E5FF), onTap: () => widget.onNavigateToTab?.call(3)),
             const SizedBox(width: 12),
-            _buildStatCard('Рейтинг', stats['averageRating'].toStringAsFixed(1), Colors.amber),
+            _buildStatCard('Рейтинг', stats['averageRating'].toStringAsFixed(1), Colors.amber, onTap: () => widget.onNavigateToTab?.call(3)),
           ],
         );
       },
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color) {
+  Widget _buildStatCard(String label, String value, Color color, {VoidCallback? onTap}) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          children: [
-            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-          ],
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
+          ),
+          child: Column(
+            children: [
+              Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+              const SizedBox(height: 4),
+              Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            ],
+          ),
         ),
       ),
     );
@@ -199,14 +204,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           itemCount: logs.length,
           itemBuilder: (context, index) {
             final log = logs[index];
-            return _buildActivityItem(log);
+            return _buildActivityItem(log, provider);
           },
         );
       },
     );
   }
 
-  Widget _buildActivityItem(Map<String, dynamic> log) {
+  Widget _buildActivityItem(Map<String, dynamic> log, WatchlistProvider provider) {
     final status = log['status'];
     final date = DateTime.parse(log['watch_date']);
     
@@ -258,6 +263,19 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     Text(actionText, style: TextStyle(color: color, fontSize: 12)),
                   ],
                 ),
+                if (provider.getWatchlistMovie(log['movie_id'])?.userRating != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, size: 12, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        provider.getWatchlistMovie(log['movie_id'])!.userRating!.toStringAsFixed(1),
+                        style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

@@ -750,7 +750,7 @@ class LocalDatabaseService {
     final db = await database;
     return await db.rawQuery(
       '''
-      SELECT wl.title, wl.poster_path, log.status, log.watch_date
+      SELECT wl.movie_id, wl.title, wl.poster_path, log.status, log.watch_date
       FROM watch_log log
       JOIN watchlist wl ON log.user_id = wl.user_id AND log.movie_id = wl.movie_id
       WHERE log.user_id = ?

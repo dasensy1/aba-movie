@@ -98,10 +98,10 @@ class TmdbApiService {
     }
   }
 
-  Future<List<Movie>> getMoviesByGenre(int genreId, {String sortBy = 'popularity.desc'}) async {
+  Future<List<Movie>> getMoviesByGenre(int genreId, {String sortBy = 'popularity.desc', int page = 1}) async {
     try {
-      debugPrint('TMDB Movies by genre: $genreId');
-      final url = '$_baseUrl/discover/movie?language=ru-RU&with_genres=$genreId&sort_by=$sortBy';
+      debugPrint('TMDB Movies by genre: $genreId, page: $page');
+      final url = '$_baseUrl/discover/movie?language=ru-RU&with_genres=$genreId&sort_by=$sortBy&page=$page';
       final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

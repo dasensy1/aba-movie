@@ -2,6 +2,7 @@
 // MOVIE TRACKER - MAIN ENTRY POINT
 // ============================================================================
 
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +31,15 @@ void main() async {
   }
 
   runApp(const MovieTrackerApp());
+}
+
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
 }
 
 class MovieTrackerApp extends StatelessWidget {
@@ -126,6 +136,7 @@ class _AppRootState extends State<_AppRoot> {
         if (auth.isLoading) {
           return MaterialApp(
             title: AppConfig.appName,
+            scrollBehavior: AppScrollBehavior(),
             debugShowCheckedModeBanner: false,
             theme: AppThemes.lightTheme,
             darkTheme: AppThemes.darkTheme,
@@ -137,6 +148,7 @@ class _AppRootState extends State<_AppRoot> {
         if (auth.isSignedIn) {
           return MaterialApp(
             title: AppConfig.appName,
+            scrollBehavior: AppScrollBehavior(),
             debugShowCheckedModeBanner: false,
             theme: AppThemes.lightTheme,
             darkTheme: AppThemes.darkTheme,

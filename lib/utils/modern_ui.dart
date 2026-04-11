@@ -5,23 +5,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Современная палитра цветов
+/// Современная палитра цветов (Стиль Apple TV / Netflix)
 class ModernColors {
-  static const primaryPurple = Color(0xFF7C5CFC);
-  static const primaryPurpleDark = Color(0xFF5B3EEA);
-  static const primaryPurpleLight = Color(0xFFA993FF);
-  static const accentCyan = Color(0xFF36D7FF);
-  static const accentPink = Color(0xFFFF6FAE);
-  static const accentAmber = Color(0xFFFFC857);
-  static const surfaceDark = Color(0xFF171A2B);
-  static const surfaceDarkHigher = Color(0xFF22263B);
-  static const backgroundDark = Color(0xFF090B14);
-  static const backgroundDarkSoft = Color(0xFF101426);
-  static const borderSoft = Color(0x33FFFFFF);
-  static const success = Color(0xFF10B981);
-  static const warning = Color(0xFFF59E0B);
-  static const error = Color(0xFFEF4444);
-  static const info = Color(0xFF3B82F6);
+  static const primaryPurple = Color(0xFF5A67D8); // Приглушенный индиго/сине-фиолетовый
+  static const primaryPurpleDark = Color(0xFF434190);
+  static const primaryPurpleLight = Color(0xFF7F9CF5);
+  static const accentCyan = Color(0xFF63B3ED); // Мягкий синий
+  static const accentPink = Color(0xFFF687B3); // Мягкий розово/персиковый
+  static const accentAmber = Color(0xFFF6E05E);
+  static const surfaceDark = Color(0xFF1A202C); // Строгий глубокий фон карточек
+  static const surfaceDarkHigher = Color(0xFF2D3748);
+  static const backgroundDark = Color(0xFF090A0F); // Глубокий почти черный фон
+  static const backgroundDarkSoft = Color(0xFF11141F);
+  static const borderSoft = Color(0x22FFFFFF);
+  static const success = Color(0xFF48BB78);
+  static const warning = Color(0xFFD69E2E);
+  static const error = Color(0xFFF56565);
+  static const info = Color(0xFF4299E1);
 }
 
 /// Градиенты для различных элементов
@@ -131,6 +131,22 @@ class ModernShadows {
           color: ModernColors.primaryPurple.withValues(alpha: 0.4),
           blurRadius: 16,
           offset: const Offset(0, 6),
+        ),
+      ];
+
+  // Тень при наведении (Web Hover)
+  static List<BoxShadow> get hoverGlow => [
+        BoxShadow(
+          color: ModernColors.primaryPurple.withValues(alpha: 0.45),
+          blurRadius: 36,
+          spreadRadius: 4,
+          offset: const Offset(0, 12),
+        ),
+        BoxShadow(
+          color: ModernColors.accentCyan.withValues(alpha: 0.25),
+          blurRadius: 24,
+          spreadRadius: -2,
+          offset: const Offset(0, 8),
         ),
       ];
 }
@@ -432,4 +448,91 @@ class ModernSpacing {
   static const double xxl = 24;
   static const double xxxl = 32;
   static const double huge = 40;
+}
+
+/// ============================================================================
+/// SKELETON LOADING
+/// ============================================================================
+
+class SkeletonLoader extends StatefulWidget {
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  const SkeletonLoader({
+    super.key,
+    required this.width,
+    required this.height,
+    this.borderRadius = 8.0,
+  });
+
+  @override
+  State<SkeletonLoader> createState() => _SkeletonLoaderState();
+}
+
+class _SkeletonLoaderState extends State<SkeletonLoader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    
+    _opacity = Tween<double>(begin: 0.3, end: 0.7).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacity.value,
+          child: Container(
+            width: widget.width,
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: ModernColors.surfaceDarkHigher,
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Утилиты для Toast уведомлений
+class ModernToasts {
+  static void showSuccess(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white))),
+          ],
+        ),
+        backgroundColor: ModernColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ModernRadius.md)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 }

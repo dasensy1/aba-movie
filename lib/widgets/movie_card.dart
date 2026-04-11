@@ -28,6 +28,7 @@ class _MovieCardState extends State<MovieCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
+  bool _isHovered = false;
 
   @override
   void initState() {
@@ -49,28 +50,41 @@ class _MovieCardState extends State<MovieCard>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) => _controller.reverse(),
-      onTapCancel: () => _controller.reverse(),
-      onTap: widget.onTap,
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
-        },
-        child: SizedBox(
-          width: 178,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPoster(),
-              const SizedBox(height: 12),
-              _buildInfo(),
-            ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() {
+        _isHovered = false;
+        _controller.reverse();
+      }),
+      child: GestureDetector(
+        onTapDown: (_) => _controller.forward(),
+        onTapUp: (_) => _controller.reverse(),
+        onTapCancel: () => _controller.reverse(),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isHovered ? 1.05 : 1.0,
+          duration: ModernAnimations.normal,
+          curve: Curves.easeOutBack,
+          child: AnimatedBuilder(
+            animation: _scaleAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: child,
+              );
+            },
+            child: SizedBox(
+              width: 178,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildPoster(),
+                  const SizedBox(height: 12),
+                  _buildInfo(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -78,15 +92,16 @@ class _MovieCardState extends State<MovieCard>
   }
 
   Widget _buildPoster() {
-    return Container(
+    return AnimatedContainer(
+      duration: ModernAnimations.normal,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: ModernShadows.medium,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: _isHovered ? ModernShadows.hoverGlow : ModernShadows.medium,
       ),
       child: Stack(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             child: AspectRatio(
               aspectRatio: 0.72,
               child: widget.movie.posterUrl.isNotEmpty
@@ -96,8 +111,7 @@ class _MovieCardState extends State<MovieCard>
                       memCacheWidth: 360,
                       memCacheHeight: 520,
                       placeholder: (context, url) => _buildPlaceholder(),
-                      errorWidget: (context, url, error) =>
-                          _buildGradientPlaceholder(),
+                      errorWidget: (context, url, error) => _buildGradientPlaceholder(),
                     )
                   : _buildGradientPlaceholder(),
             ),
@@ -105,49 +119,64 @@ class _MovieCardState extends State<MovieCard>
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.1),
-                    Colors.black.withValues(alpha: 0.45),
+                    Colors.black.withValues(alpha: 0.2),
+                    Colors.black.withValues(alpha: 0.7),
                   ],
                 ),
               ),
             ),
           ),
-          if (widget.onFavoriteTap != null)
-            Positioned(
-              top: 10,
-              right: 10,
-              child: GestureDetector(
-                onTap: widget.onFavoriteTap,
-                child: AnimatedContainer(
-                  duration: ModernAnimations.fast,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: widget.isFavorite
-                        ? ModernColors.accentPink.withValues(alpha: 0.95)
-                        : Colors.black.withValues(alpha: 0.38),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.16),
-                    ),
-                    boxShadow:
-                        widget.isFavorite ? ModernShadows.purpleGlow : null,
-                  ),
-                  child: Icon(
-                    widget.isFavorite
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color: Colors.white,
-                    size: 18,
+          
+          // Hover Overlay (Apple TV / Netflix style)
+          Positioned.fill(
+            child: AnimatedOpacity(
+              opacity: _isHovered ? 1.0 : 0.0,
+              duration: ModernAnimations.fast,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.black.withValues(alpha: 0.5),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 28),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _HoverActionButton(icon: Icons.add_rounded, onTap: () {}),
+                          if (widget.onFavoriteTap != null) ...[
+                            const SizedBox(width: 12),
+                            _HoverActionButton(
+                              icon: widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              iconColor: widget.isFavorite ? ModernColors.accentPink : Colors.white,
+                              onTap: widget.onFavoriteTap!,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
+          ),
+
           if (widget.showRating && widget.movie.voteAverage > 0)
             Positioned(
               left: 10,
@@ -259,6 +288,34 @@ class _MovieCardState extends State<MovieCard>
     if (rating >= 7) return ModernColors.success;
     if (rating >= 5) return ModernColors.warning;
     return ModernColors.error;
+  }
+}
+
+class _HoverActionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color iconColor;
+
+  const _HoverActionButton({
+    required this.icon,
+    required this.onTap,
+    this.iconColor = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+    );
   }
 }
 
