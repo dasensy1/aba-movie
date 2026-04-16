@@ -145,27 +145,34 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         ),
         // Сетка фильмов
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.55,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: provider.favorites.length,
-            itemBuilder: (context, index) {
-              final movie = provider.favorites[index];
-              return MovieCardVertical(
-                movie: movie,
-                isFavorite: true,
-                onFavoriteTap: () => _toggleFavorite(movie),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MovieDetailScreen(movie: movie),
-                    ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final crossAxisCount = width >= 1200 ? 6 : width >= 900 ? 5 : width >= 600 ? 4 : 3;
+
+              return GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: 0.65,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: provider.favorites.length,
+                itemBuilder: (context, index) {
+                  final movie = provider.favorites[index];
+                  return MovieCardVertical(
+                    movie: movie,
+                    isFavorite: true,
+                    onFavoriteTap: () => _toggleFavorite(movie),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailScreen(movie: movie),
+                        ),
+                      );
+                    },
                   );
                 },
               );

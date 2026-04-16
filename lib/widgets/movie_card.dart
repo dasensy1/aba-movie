@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/movie.dart';
+import '../providers/providers.dart';
 import '../utils/modern_ui.dart';
 
 class MovieCard extends StatefulWidget {
@@ -147,19 +149,39 @@ class _MovieCardState extends State<MovieCard>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+                      GestureDetector(
+                        onTap: widget.onTap,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 28),
                         ),
-                        child: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 28),
                       ),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _HoverActionButton(icon: Icons.add_rounded, onTap: () {}),
+                          Consumer<WatchlistProvider>(
+                            builder: (context, watchlist, _) {
+                              final auth = context.read<AuthProvider>();
+                              final inWatchlist = watchlist.isInWatchlist(widget.movie.id);
+                              return _HoverActionButton(
+                                icon: inWatchlist ? Icons.check_rounded : Icons.add_rounded,
+                                iconColor: inWatchlist ? ModernColors.accentCyan : Colors.white,
+                                onTap: () {
+                                  if (auth.userId == null) return;
+                                  if (inWatchlist) {
+                                    watchlist.removeFromWatchlist(widget.movie.id, auth.userId);
+                                  } else {
+                                    watchlist.addToWatchlist(widget.movie, auth.userId);
+                                  }
+                                },
+                              );
+                            },
+                          ),
                           if (widget.onFavoriteTap != null) ...[
                             const SizedBox(width: 12),
                             _HoverActionButton(

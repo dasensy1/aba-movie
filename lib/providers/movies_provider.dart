@@ -12,7 +12,6 @@ import '../services/services.dart';
 
 class MoviesProvider with ChangeNotifier {
   final TmdbApiService _apiService = TmdbApiService();
-  final DemoDataService _demoService = DemoDataService();
 
   List<Movie> _trendingMovies = [];
   List<Movie> _searchResults = [];
@@ -24,7 +23,7 @@ class MoviesProvider with ChangeNotifier {
 
   // Расширенные фильтры
   SearchFilters _filters = SearchFilters();
-  List<String> _searchHistory = [];
+  final List<String> _searchHistory = [];
 
   // Разделённые loading-флаги для каждой операции
   bool _isLoadingTrending = false;
@@ -41,7 +40,8 @@ class MoviesProvider with ChangeNotifier {
 
   // Getters
   List<Movie> get trendingMovies => _trendingMovies;
-  List<Movie> get searchResults => _filteredResults.isNotEmpty ? _filteredResults : _searchResults;
+  List<Movie> get searchResults =>
+      _filteredResults.isNotEmpty ? _filteredResults : _searchResults;
   List<Movie> get rawSearchResults => _searchResults; // Без фильтрации
   List<Movie> get popularMovies => _popularMovies;
   List<Movie> get topRatedMovies => _topRatedMovies;
@@ -49,9 +49,14 @@ class MoviesProvider with ChangeNotifier {
   List<Genre> get genres => _genres;
   SearchFilters get filters => _filters;
   List<String> get searchHistory => _searchHistory;
-  
+
   // Общий флаг — true если любая операция грузится
-  bool get isLoading => _isLoadingTrending || _isLoadingSearch || _isLoadingPopular || _isLoadingTopRated || _isLoadingGenre;
+  bool get isLoading =>
+      _isLoadingTrending ||
+      _isLoadingSearch ||
+      _isLoadingPopular ||
+      _isLoadingTopRated ||
+      _isLoadingGenre;
   bool get isLoadingTrending => _isLoadingTrending;
   bool get isLoadingSearch => _isLoadingSearch;
   bool get isLoadingPopular => _isLoadingPopular;
@@ -103,16 +108,18 @@ class MoviesProvider with ChangeNotifier {
 
     try {
       _searchResults = await _apiService.searchMovies(query);
-      
+
       // Добавляем в историю поиска
       if (!_searchHistory.contains(query)) {
         _searchHistory.insert(0, query);
-        if (_searchHistory.length > 10) _searchHistory.removeLast();
+        if (_searchHistory.length > 10) {
+          _searchHistory.removeLast();
+        }
       }
-      
+
       // Применяем текущие фильтры
       _applyFilters();
-      
+
       _isLoadingSearch = false;
       notifyListeners();
     } catch (e) {
@@ -147,9 +154,10 @@ class MoviesProvider with ChangeNotifier {
     debugPrint('Фильтр - жанр: "${_filters.selectedGenre}"');
     debugPrint('Фильтр - рейтинг: ${_filters.minRating}');
     debugPrint('Фильтр - год: ${_filters.minYear} - ${_filters.maxYear}');
-    debugPrint('Фильтр - сортировка: ${_filters.sortBy} (${_filters.sortAscending ? "возр" : "убыв"})');
+    debugPrint(
+        'Фильтр - сортировка: ${_filters.sortBy} (${_filters.sortAscending ? "возр" : "убыв"})');
     debugPrint('Загружено жанров из TMDb: ${_genres.length}');
-    
+
     if (_searchResults.isEmpty) {
       _filteredResults = [];
       debugPrint('Результаты пустые - filteredResults очищен');
@@ -202,15 +210,23 @@ class MoviesProvider with ChangeNotifier {
     // Фильтр по году выпуска
     if (_filters.minYear != null || _filters.maxYear != null) {
       filtered = filtered.where((movie) {
-        if (movie.releaseDate == null || movie.releaseDate!.isEmpty) return false;
-        
+        if (movie.releaseDate == null || movie.releaseDate!.isEmpty) {
+          return false;
+        }
+
         try {
           final year = int.tryParse(movie.releaseDate!.substring(0, 4));
-          if (year == null) return false;
-          
-          if (_filters.minYear != null && year < _filters.minYear!) return false;
-          if (_filters.maxYear != null && year > _filters.maxYear!) return false;
-          
+          if (year == null) {
+            return false;
+          }
+
+          if (_filters.minYear != null && year < _filters.minYear!) {
+            return false;
+          }
+          if (_filters.maxYear != null && year > _filters.maxYear!) {
+            return false;
+          }
+
           return true;
         } catch (e) {
           return false;
@@ -222,7 +238,7 @@ class MoviesProvider with ChangeNotifier {
     // Сортировка
     filtered.sort((a, b) {
       int result = 0;
-      
+
       switch (_filters.sortBy) {
         case 'title':
           result = a.title.compareTo(b.title);
@@ -236,12 +252,13 @@ class MoviesProvider with ChangeNotifier {
           result = a.voteAverage.compareTo(b.voteAverage);
           break;
       }
-      
+
       return _filters.sortAscending ? result : -result;
     });
 
     _filteredResults = filtered;
-    debugPrint('=== ИТОГО после фильтрации: ${_filteredResults.length} фильмов ===');
+    debugPrint(
+        '=== ИТОГО после фильтрации: ${_filteredResults.length} фильмов ===');
   }
 
   /// Извлечь год из даты
@@ -327,10 +344,12 @@ class MoviesProvider with ChangeNotifier {
     try {
       debugPrint('=== ЗАГРУЗКА ФИЛЬМОВ ПО ЖАНРУ ===');
       debugPrint('Genre ID: $genreId');
-      
-      _moviesByGenre = await _apiService.getMoviesByGenre(genreId, page: _genrePage);
-      debugPrint('Загружено ${_moviesByGenre.length} фильмов по жанру ID=$genreId');
-      
+
+      _moviesByGenre =
+          await _apiService.getMoviesByGenre(genreId, page: _genrePage);
+      debugPrint(
+          'Загружено ${_moviesByGenre.length} фильмов по жанру ID=$genreId');
+
       _isLoadingGenre = false;
       notifyListeners();
     } catch (e) {
@@ -343,13 +362,14 @@ class MoviesProvider with ChangeNotifier {
   /// Подгрузка следующей страницы фильмов по жанру
   Future<void> loadMoreMoviesByGenre() async {
     if (_isLoadingMoreGenre || _selectedGenreId <= 0) return;
-    
+
     _isLoadingMoreGenre = true;
     _genrePage++;
     notifyListeners();
 
     try {
-      final newMovies = await _apiService.getMoviesByGenre(_selectedGenreId, page: _genrePage);
+      final newMovies = await _apiService.getMoviesByGenre(_selectedGenreId,
+          page: _genrePage);
       _moviesByGenre.addAll(newMovies);
       _isLoadingMoreGenre = false;
       notifyListeners();
