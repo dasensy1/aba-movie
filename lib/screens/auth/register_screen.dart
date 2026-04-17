@@ -81,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return AuthShell(
       eyebrow: 'РЕГИСТРАЦИЯ',
       title: 'Создать аккаунт',
-      subtitle: 'Один и тот же спокойный интерфейс для входа и регистрации.',
+      subtitle: 'Создайте аккаунт, чтобы сохранять фильмы, оценки и свои подборки.',
       leading: IconButton(
         onPressed: () => Navigator.pop(context),
         icon: Container(
