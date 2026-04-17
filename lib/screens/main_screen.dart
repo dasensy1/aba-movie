@@ -33,23 +33,6 @@ class _MainScreenState extends State<MainScreen> {
       ];
 
   @override
-  void initState() {
-    super.initState();
-    _loadInitialData();
-  }
-
-  Future<void> _loadInitialData() async {
-    final auth = context.read<AuthProvider>();
-    final settings = context.read<SettingsProvider>();
-    final favorites = context.read<FavoritesProvider>();
-    final watchlist = context.read<WatchlistProvider>();
-
-    await settings.initialize(auth.userId);
-    await favorites.loadFavorites(auth.userId);
-    await watchlist.loadWatchlist(auth.userId);
-  }
-
-  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {

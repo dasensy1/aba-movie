@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../utils/modern_ui.dart';
 import '../../widgets/modern_text_field.dart';
@@ -20,6 +21,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  late final Future<List<SavedAccount>> _savedAccountsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _savedAccountsFuture = context.read<AuthProvider>().getSavedAccounts();
+  }
 
   @override
   void dispose() {
@@ -67,6 +75,46 @@ class _LoginScreenState extends State<LoginScreen> {
         key: _formKey,
         child: Column(
           children: [
+            FutureBuilder<List<SavedAccount>>(
+              future: _savedAccountsFuture,
+              builder: (context, snapshot) {
+                final accounts = snapshot.data ?? const <SavedAccount>[];
+                if (accounts.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                return Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Сохраненные аккаунты',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: accounts.take(5).map((account) {
+                        final label =
+                            account.displayName?.trim().isNotEmpty == true
+                                ? '${account.displayName} (${account.email})'
+                                : account.email;
+
+                        return ActionChip(
+                          label: Text(label),
+                          onPressed: () {
+                            _emailController.text = account.email;
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
             ModernTextField(
               controller: _emailController,
               label: 'Email',
@@ -148,8 +196,10 @@ class _LoginScreenState extends State<LoginScreen> {
             child: const Text('Забыли пароль?'),
           ),
           const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
             children: [
               Text(
                 'Нет аккаунта? ',

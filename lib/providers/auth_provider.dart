@@ -29,6 +29,15 @@ class AuthProvider with ChangeNotifier {
   /// Ключ для хранения ID сессии в SharedPreferences
   static const _sessionUserIdKey = 'session_user_id';
 
+  Future<List<SavedAccount>> getSavedAccounts() async {
+    try {
+      return await _userRepository.getSavedAccounts();
+    } catch (e) {
+      debugPrint('Ошибка загрузки сохраненных аккаунтов: $e');
+      return [];
+    }
+  }
+
   /// Инициализация при старте приложения
   Future<void> initialize() async {
     _isLoading = true;
@@ -220,6 +229,10 @@ class AuthProvider with ChangeNotifier {
   /// Выход
   Future<void> logout() async {
     try {
+      if (_localUser != null) {
+        await _userRepository.saveLogoutAccount(_localUser!);
+      }
+
       // Очищаем сессию
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_sessionUserIdKey);

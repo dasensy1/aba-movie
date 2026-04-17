@@ -37,26 +37,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _ensureDataLoaded({bool force = false}) async {
     final provider = context.read<MoviesProvider>();
-    final tasks = <Future<void>>[];
+    final needsLoad = force ||
+        provider.trendingMovies.isEmpty ||
+        provider.popularMovies.isEmpty ||
+        provider.topRatedMovies.isEmpty ||
+        provider.genres.isEmpty;
 
-    if (force || provider.trendingMovies.isEmpty) {
-      tasks.add(provider.loadTrendingMovies());
-    }
-    if (force || provider.popularMovies.isEmpty) {
-      tasks.add(provider.loadPopularMovies());
-    }
-    if (force || provider.topRatedMovies.isEmpty) {
-      tasks.add(provider.loadTopRatedMovies());
-    }
-    if (force || provider.genres.isEmpty) {
-      tasks.add(provider.loadGenres());
-    }
-
-    if (tasks.isEmpty) return;
+    if (!needsLoad) return;
 
     setState(() => _isRefreshing = true);
     try {
-      await Future.wait(tasks);
+      if (force || provider.trendingMovies.isEmpty) {
+        await provider.loadTrendingMovies();
+      }
+      if (force || provider.popularMovies.isEmpty) {
+        await provider.loadPopularMovies();
+      }
+      if (force || provider.topRatedMovies.isEmpty) {
+        await provider.loadTopRatedMovies();
+      }
+      if (force || provider.genres.isEmpty) {
+        await provider.loadGenres();
+      }
     } finally {
       if (mounted) {
         setState(() => _isRefreshing = false);

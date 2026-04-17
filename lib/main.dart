@@ -3,7 +3,7 @@
 // ============================================================================
 
 import 'dart:ui' show PointerDeviceKind;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -25,7 +25,9 @@ void main() async {
         indexedDbName: 'movie_tracker_storage',
       ),
     );
-  } else {
+  } else if (defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.macOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
@@ -159,6 +161,7 @@ class _AppRootState extends State<_AppRoot> {
 
         return MaterialApp(
           title: AppConfig.appName,
+          scrollBehavior: AppScrollBehavior(),
           debugShowCheckedModeBanner: false,
           theme: AppThemes.lightTheme,
           darkTheme: AppThemes.darkTheme,

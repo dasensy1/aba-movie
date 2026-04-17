@@ -632,6 +632,46 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   }
 
   Widget _buildActionRow() {
+    final isCompact = MediaQuery.sizeOf(context).width < 380;
+
+    final trailerButton = ElevatedButton.icon(
+      onPressed: _launchTrailer,
+      icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+      label: const Text('РўСЂРµР№Р»РµСЂ', style: TextStyle(color: Colors.black)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+    );
+
+    final watchlistButton = ElevatedButton.icon(
+      onPressed: _toggleWatchlist,
+      icon: Icon(
+        _isInWatchlist
+            ? Icons.check_circle_rounded
+            : Icons.add_circle_outline_rounded,
+      ),
+      label: Text(_isInWatchlist ? 'Р’ СЃРїРёСЃРєРµ' : 'Р’ СЃРїРёСЃРѕРє'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.08),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+    );
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          trailerButton,
+          const SizedBox(height: 12),
+          watchlistButton,
+        ],
+      );
+    }
+
     return Row(
       children: [
         Expanded(

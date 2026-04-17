@@ -64,7 +64,7 @@ class LocalDatabaseService {
     
     return await openDatabase(
       path,
-      version: 6, // Новая схема с user-scoped данными
+      version: 7, // Adds logout table for saved accounts
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
@@ -209,13 +209,30 @@ class LocalDatabaseService {
         viewed_at TEXT NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE logout (
+        user_id INTEGER PRIMARY KEY,
+        email TEXT NOT NULL,
+        display_name TEXT,
+        photo_url TEXT,
+        logged_out_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX idx_logout_logged_out_at ON logout(logged_out_at DESC)',
+    );
   }
 
   // ==================== MIGRATIONS ====================
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Миграция с v5 на v6 — полная перестройка схемы
     if (oldVersion < 6) {
       await _migrateToV6(db);
+    }
+    if (oldVersion < 7) {
+      await _migrateToV7(db);
     }
   }
 
@@ -435,6 +452,23 @@ class LocalDatabaseService {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
+  Future<void> _migrateToV7(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS logout (
+        user_id INTEGER PRIMARY KEY,
+        email TEXT NOT NULL,
+        display_name TEXT,
+        photo_url TEXT,
+        logged_out_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_logout_logged_out_at ON logout(logged_out_at DESC)',
+    );
+  }
+
   // ==================== USERS ====================
 
   /// Создать нового пользователя
@@ -457,6 +491,27 @@ class LocalDatabaseService {
     final result = await db.query('users', where: 'id = ?', whereArgs: [id]);
     if (result.isEmpty) return null;
     return LocalUser.fromMap(result.first);
+  }
+
+  Future<void> saveLogoutAccount(LocalUser user) async {
+    final db = await database;
+    await db.insert(
+      'logout',
+      {
+        'user_id': user.id,
+        'email': user.email,
+        'display_name': user.displayName,
+        'photo_url': user.photoUrl,
+        'logged_out_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<SavedAccount>> getSavedAccounts() async {
+    final db = await database;
+    final maps = await db.query('logout', orderBy: 'logged_out_at DESC');
+    return maps.map((map) => SavedAccount.fromMap(map)).toList();
   }
 
   /// Получить всех пользователей

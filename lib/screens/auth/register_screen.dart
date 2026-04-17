@@ -237,8 +237,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
       ),
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
         children: [
           Text(
             'Уже есть аккаунт? ',

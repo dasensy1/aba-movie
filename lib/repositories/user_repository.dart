@@ -93,6 +93,14 @@ class UserRepository {
     return await _db.getUserByEmail(email);
   }
 
+  Future<void> saveLogoutAccount(LocalUser user) async {
+    await _db.saveLogoutAccount(user);
+  }
+
+  Future<List<SavedAccount>> getSavedAccounts() async {
+    return await _db.getSavedAccounts();
+  }
+
   // ==================== SETTINGS ====================
 
   Future<Map<String, dynamic>?> getUserSettings(int userId) async {
