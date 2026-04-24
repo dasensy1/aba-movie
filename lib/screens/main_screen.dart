@@ -22,15 +22,19 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
   List<Widget> get _pages => [
-        HomeScreen(
-            onNavigateToTab: (index) => setState(() => _currentIndex = index)),
-        const SearchScreen(),
-        const CategoriesScreen(),
-        const WatchlistScreen(),
-        const FavoritesScreen(),
-        ProfileScreen(
-            onNavigateToTab: (index) => setState(() => _currentIndex = index)),
-      ];
+    HomeScreen(
+      onNavigateToTab: (index) => setState(() => _currentIndex = index),
+    ),
+    const SearchScreen(),
+    const CategoriesScreen(),
+    const WatchlistScreen(),
+    FavoritesScreen(
+      onNavigateToTab: (index) => setState(() => _currentIndex = index),
+    ),
+    ProfileScreen(
+      onNavigateToTab: (index) => setState(() => _currentIndex = index),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -56,8 +60,9 @@ class _MainScreenState extends State<MainScreen> {
                     TabItem(icon: Icons.category_rounded, title: 'Жанры'),
                     TabItem(icon: Icons.track_changes, title: 'Трекинг'),
                     TabItem(
-                        icon: Icons.favorite_outline_rounded,
-                        title: 'Избранное'),
+                      icon: Icons.favorite_outline_rounded,
+                      title: 'Избранное',
+                    ),
                     TabItem(icon: Icons.person_outline, title: 'Профиль'),
                   ],
                   onTap: (index) => setState(() => _currentIndex = index),
@@ -83,15 +88,17 @@ class _MainScreenState extends State<MainScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                const Icon(Icons.movie_creation_rounded,
-                    color: ModernColors.primaryPurpleLight, size: 30),
+                const Icon(
+                  Icons.movie_creation_rounded,
+                  color: ModernColors.primaryPurpleLight,
+                  size: 30,
+                ),
                 const SizedBox(width: 10),
                 Text(
-                  'Movie Tracker',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  'Aba Movie',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(width: 28),
                 _WebNavItem(
@@ -166,7 +173,9 @@ class _WebSearchField extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: 'Поиск фильмов...',
                 hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.36), fontSize: 14),
+                  color: Colors.white.withValues(alpha: 0.36),
+                  fontSize: 14,
+                ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -218,8 +227,8 @@ class _WebNavItemState extends State<_WebNavItem> {
             color: widget.isSelected
                 ? ModernColors.primaryPurple.withValues(alpha: 0.14)
                 : _isHovered
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : Colors.transparent,
+                ? Colors.white.withValues(alpha: 0.04)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: widget.isSelected
@@ -241,8 +250,9 @@ class _WebNavItemState extends State<_WebNavItem> {
                 widget.title,
                 style: TextStyle(
                   color: widget.isSelected ? Colors.white : Colors.white70,
-                  fontWeight:
-                      widget.isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: widget.isSelected
+                      ? FontWeight.w700
+                      : FontWeight.w500,
                 ),
               ),
             ],

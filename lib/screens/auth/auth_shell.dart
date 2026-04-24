@@ -53,11 +53,7 @@ class AuthShell extends StatelessWidget {
                 child: _glow(const Color(0xFF2A2F3A), 320),
               ),
               if (leading != null)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: leading!,
-                ),
+                Positioned(top: 12, left: 12, child: leading!),
               Center(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
@@ -102,7 +98,7 @@ class AuthShell extends StatelessWidget {
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: const Text(
-              'Movie Tracker',
+              'Aba Movie',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 13,
@@ -114,17 +110,17 @@ class AuthShell extends StatelessWidget {
           Text(
             'Минималистичный трекер для фильмов без лишнего шума.',
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  height: 1.05,
-                ),
+              fontWeight: FontWeight.w800,
+              height: 1.05,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             'Следите за просмотренным, собирайте избранное и быстро переходите к деталям фильма на любом устройстве.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  height: 1.6,
-                ),
+              color: Colors.white.withValues(alpha: 0.7),
+              height: 1.6,
+            ),
           ),
           const SizedBox(height: 28),
           const Wrap(
@@ -171,16 +167,16 @@ class AuthShell extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             title,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.68),
-                ),
+              color: Colors.white.withValues(alpha: 0.68),
+            ),
           ),
           const SizedBox(height: 24),
           form,
@@ -199,10 +195,7 @@ class AuthShell extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(
-            colors: [
-              color.withValues(alpha: 0.22),
-              color.withValues(alpha: 0),
-            ],
+            colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0)],
           ),
         ),
       ),

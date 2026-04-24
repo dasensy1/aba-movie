@@ -1,5 +1,5 @@
 // ============================================================================
-// MOVIE TRACKER - MAIN ENTRY POINT
+// ABA MOVIE - MAIN ENTRY POINT
 // ============================================================================
 
 import 'dart:ui' show PointerDeviceKind;
@@ -24,7 +24,7 @@ Future<void> main() async {
   );
   debugPrint('✅ Supabase initialized');
 
-  runApp(const MovieTrackerApp());
+  runApp(const AbaMovieApp());
 }
 
 class AppScrollBehavior extends MaterialScrollBehavior {
@@ -36,31 +36,19 @@ class AppScrollBehavior extends MaterialScrollBehavior {
       };
 }
 
-class MovieTrackerApp extends StatelessWidget {
-  const MovieTrackerApp({super.key});
+class AbaMovieApp extends StatelessWidget {
+  const AbaMovieApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AuthProvider()..initialize(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => MoviesProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => FavoritesProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => WatchlistProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => ReviewsProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => SettingsProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
+        ChangeNotifierProvider(create: (_) => MoviesProvider()),
+        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+        ChangeNotifierProvider(create: (_) => WatchlistProvider()),
+        ChangeNotifierProvider(create: (_) => ReviewsProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: const _AppRoot(),
     );
@@ -191,13 +179,15 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.3,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
   }
@@ -322,7 +312,7 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                           ),
                           const SizedBox(height: 32),
                           const Text(
-                            'Movie Tracker',
+                            'Aba Movie',
                             style: TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.w800,
@@ -341,8 +331,11 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                           FadeTransition(
                             opacity: CurvedAnimation(
                               parent: _controller,
-                              curve: const Interval(0.5, 1.0,
-                                  curve: Curves.easeIn),
+                              curve: const Interval(
+                                0.5,
+                                1.0,
+                                curve: Curves.easeIn,
+                              ),
                             ),
                             child: Text(
                               'Отслеживай. Смотри. Наслаждайся.',
@@ -358,8 +351,11 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                           FadeTransition(
                             opacity: CurvedAnimation(
                               parent: _controller,
-                              curve: const Interval(0.6, 1.0,
-                                  curve: Curves.easeIn),
+                              curve: const Interval(
+                                0.6,
+                                1.0,
+                                curve: Curves.easeIn,
+                              ),
                             ),
                             child: SizedBox(
                               width: 32,

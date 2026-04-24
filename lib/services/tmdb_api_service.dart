@@ -12,7 +12,8 @@ import '../models/models.dart';
 class TmdbApiService {
   static const String _baseUrl = 'https://api.themoviedb.org/3';
   static const String _imageBase = 'https://image.tmdb.org/t/p/';
-  static const String _bearerToken = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI1MTBkZmEwMDc4MzIwYjEwZWRkZWE4NDA4N2NiYWQ1NCIsIm5iZiI6MTc3NTgwMDcwMS4wMTcsInN1YiI6IjY5ZDg5MTdkYzc2MmQ3M2NjMWJmZjBjZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.KwDLhT2Gg4KoC8S1HXMWjapB6xnliLzMbhP5rE0xacA';
+  static const String _bearerToken =
+      'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI1MTBkZmEwMDc4MzIwYjEwZWRkZWE4NDA4N2NiYWQ1NCIsIm5iZiI6MTc3NTgwMDcwMS4wMTcsInN1YiI6IjY5ZDg5MTdkYzc2MmQ3M2NjMWJmZjBjZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.KwDLhT2Gg4KoC8S1HXMWjapB6xnliLzMbhP5rE0xacA';
 
   Map<String, String> get _headers => {
     'Authorization': 'Bearer $_bearerToken',
@@ -23,7 +24,9 @@ class TmdbApiService {
     try {
       debugPrint('TMDB Trending movies');
       final url = '$_baseUrl/trending/movie/week?language=ru-RU';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
@@ -40,7 +43,9 @@ class TmdbApiService {
     try {
       debugPrint('TMDB Popular movies');
       final url = '$_baseUrl/movie/popular?language=ru-RU';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
@@ -57,7 +62,9 @@ class TmdbApiService {
     try {
       debugPrint('TMDB Top rated movies');
       final url = '$_baseUrl/movie/top_rated?language=ru-RU';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
@@ -70,13 +77,21 @@ class TmdbApiService {
     }
   }
 
-  Future<List<Movie>> searchMovies(String query, {int? year, String? genre, String? sortBy}) async {
+  Future<List<Movie>> searchMovies(
+    String query, {
+    int? year,
+    String? genre,
+    String? sortBy,
+  }) async {
     if (query.trim().isEmpty && (year == null && genre == null)) return [];
     try {
-      debugPrint('TMDB Search: query="$query" year=$year genre=$genre sort=$sortBy');
+      debugPrint(
+        'TMDB Search: query="$query" year=$year genre=$genre sort=$sortBy',
+      );
       String url;
       if (query.trim().isNotEmpty) {
-        url = '$_baseUrl/search/movie?query=${Uri.encodeComponent(query)}&language=ru-RU';
+        url =
+            '$_baseUrl/search/movie?query=${Uri.encodeComponent(query)}&language=ru-RU';
         if (year != null) url += '&year=$year';
         if (genre != null) url += '&with_genres=$genre';
       } else if (genre != null) {
@@ -85,7 +100,9 @@ class TmdbApiService {
         url = '$_baseUrl/discover/movie?language=ru-RU&year=$year';
       }
       if (sortBy != null && sortBy.isNotEmpty) url += '&sort_by=$sortBy';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
@@ -98,11 +115,18 @@ class TmdbApiService {
     }
   }
 
-  Future<List<Movie>> getMoviesByGenre(int genreId, {String sortBy = 'popularity.desc', int page = 1}) async {
+  Future<List<Movie>> getMoviesByGenre(
+    int genreId, {
+    String sortBy = 'popularity.desc',
+    int page = 1,
+  }) async {
     try {
       debugPrint('TMDB Movies by genre: $genreId, page: $page');
-      final url = '$_baseUrl/discover/movie?language=ru-RU&with_genres=$genreId&sort_by=$sortBy&page=$page';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final url =
+          '$_baseUrl/discover/movie?language=ru-RU&with_genres=$genreId&sort_by=$sortBy&page=$page';
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
@@ -118,8 +142,11 @@ class TmdbApiService {
   Future<Movie?> getMovieDetails(int tmdbId) async {
     try {
       debugPrint('TMDB Movie details: $tmdbId');
-      final url = '$_baseUrl/movie/$tmdbId?language=ru-RU&append_to_response=videos,credits';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final url =
+          '$_baseUrl/movie/$tmdbId?language=ru-RU&append_to_response=videos,credits';
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return Movie.fromTmdb(data);
@@ -135,7 +162,9 @@ class TmdbApiService {
     try {
       debugPrint('TMDB Genres');
       final url = '$_baseUrl/genre/movie/list?language=ru-RU';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['genres'] as List;
@@ -163,7 +192,9 @@ class TmdbApiService {
     try {
       debugPrint('TMDB Movie cast: $movieId');
       final url = '$_baseUrl/movie/$movieId/credits?language=ru-RU';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['cast'] != null) {
@@ -182,7 +213,9 @@ class TmdbApiService {
     try {
       debugPrint('TMDB Similar movies: $movieId');
       final url = '$_baseUrl/movie/$movieId/similar?language=ru-RU';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
@@ -200,7 +233,9 @@ class TmdbApiService {
     try {
       debugPrint('TMDB Recommendations: $movieId');
       final url = '$_baseUrl/movie/$movieId/recommendations?language=ru-RU';
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
@@ -210,6 +245,25 @@ class TmdbApiService {
     } catch (e) {
       debugPrint('TMDB Recommendations error: $e');
       return [];
+    }
+  }
+
+  /// Получить детали актера
+  Future<Map<String, dynamic>?> getActorDetails(int actorId) async {
+    try {
+      debugPrint('TMDB Actor details: $actorId');
+      final url =
+          '$_baseUrl/person/$actorId?language=ru-RU&append_to_response=movie_credits';
+      final response = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('TMDB Actor details error: $e');
+      return null;
     }
   }
 }

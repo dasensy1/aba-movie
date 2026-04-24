@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
 import '../utils/modern_ui.dart';
+import 'actor_detail_screen.dart';
 import 'movie_collection_screen.dart';
 import 'widgets/reviews_widget.dart';
 import 'widgets/status_rating_widget.dart';
@@ -54,8 +55,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     final favoritesProvider = context.read<FavoritesProvider>();
     final watchlistProvider = context.read<WatchlistProvider>();
 
-    final watchlistMovie =
-        watchlistProvider.getWatchlistMovie(_currentMovie.id);
+    final watchlistMovie = watchlistProvider.getWatchlistMovie(
+      _currentMovie.id,
+    );
     setState(() {
       _isFavorite = favoritesProvider.isFavoriteNow(_currentMovie.id);
       _isInWatchlist = watchlistMovie != null;
@@ -72,9 +74,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     }
 
     try {
-      final fullMovie = await context
-          .read<MoviesProvider>()
-          .getMovieDetails(_currentMovie.id);
+      final fullMovie = await context.read<MoviesProvider>().getMovieDetails(
+        _currentMovie.id,
+      );
       if (mounted && fullMovie != null) {
         setState(() => _currentMovie = fullMovie);
       }
@@ -85,9 +87,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   Future<void> _loadSimilarMovies() async {
     try {
-      final movies = await context
-          .read<MoviesProvider>()
-          .getSimilarMovies(_currentMovie.id);
+      final movies = await context.read<MoviesProvider>().getSimilarMovies(
+        _currentMovie.id,
+      );
       if (mounted) {
         setState(() => _similarMovies = movies);
       }
@@ -130,9 +132,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   Future<void> _incrementCount() async {
     final auth = context.read<AuthProvider>();
-    await context
-        .read<WatchlistProvider>()
-        .incrementWatchCount(_currentMovie.id, auth.userId);
+    await context.read<WatchlistProvider>().incrementWatchCount(
+      _currentMovie.id,
+      auth.userId,
+    );
     _checkStatuses();
   }
 
@@ -183,9 +186,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   const Text(
                     'Добавить в список',
                     style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   ...WatchStatus.values.map((status) {
@@ -202,8 +206,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: selected
-                                ? _getStatusColor(status)
-                                    .withValues(alpha: 0.45)
+                                ? _getStatusColor(
+                                    status,
+                                  ).withValues(alpha: 0.45)
                                 : Colors.white.withValues(alpha: 0.08),
                           ),
                         ),
@@ -243,8 +248,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                       selectedDate == null
                           ? 'Указать дату просмотра'
                           : '${selectedDate!.day.toString().padLeft(2, '0')}.'
-                              '${selectedDate!.month.toString().padLeft(2, '0')}.'
-                              '${selectedDate!.year}',
+                                '${selectedDate!.month.toString().padLeft(2, '0')}.'
+                                '${selectedDate!.year}',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -253,8 +258,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     child: ElevatedButton(
                       onPressed: selectedStatus == null
                           ? null
-                          : () => Navigator.pop(
-                              context, (selectedStatus!, selectedDate)),
+                          : () => Navigator.pop(context, (
+                              selectedStatus!,
+                              selectedDate,
+                            )),
                       child: const Text('Сохранить'),
                     ),
                   ),
@@ -287,8 +294,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     final isWide = size.width >= 900;
     final backdropUrl =
         movie.backdropPath != null && movie.backdropPath!.isNotEmpty
-            ? 'https://image.tmdb.org/t/p/w1280${movie.backdropPath}'
-            : movie.posterUrl;
+        ? 'https://image.tmdb.org/t/p/w1280${movie.backdropPath}'
+        : movie.posterUrl;
 
     return Scaffold(
       backgroundColor: ModernColors.backgroundDark,
@@ -329,7 +336,11 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
-                      isWide ? 32 : 16, 110, isWide ? 32 : 16, 40),
+                    isWide ? 32 : 16,
+                    110,
+                    isWide ? 32 : 16,
+                    40,
+                  ),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1100),
@@ -367,11 +378,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       title: AnimatedOpacity(
         opacity: _scrollOffset > 120 ? 1 : 0,
         duration: ModernAnimations.fast,
-        child: Text(
-          movie.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        child: Text(movie.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
@@ -484,8 +491,11 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     return Container(
       color: const Color(0xFF171C25),
       child: const Center(
-        child: Icon(Icons.movie_creation_outlined,
-            color: Colors.white38, size: 42),
+        child: Icon(
+          Icons.movie_creation_outlined,
+          color: Colors.white38,
+          size: 42,
+        ),
       ),
     );
   }
@@ -496,10 +506,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF232834),
-            Color(0xFF11151D),
-          ],
+          colors: [Color(0xFF232834), Color(0xFF11151D)],
         ),
       ),
     );
@@ -543,8 +550,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       cards.add(_buildMetaCard('Длительность', '${movie.runtime} мин'));
     }
     if (movie.voteAverage > 0) {
-      cards
-          .add(_buildMetaCard('Рейтинг', movie.voteAverage.toStringAsFixed(1)));
+      cards.add(
+        _buildMetaCard('Рейтинг', movie.voteAverage.toStringAsFixed(1)),
+      );
     }
     if (movie.voteCount > 0) {
       cards.add(_buildMetaCard('Оценок', movie.voteCount.toString()));
@@ -597,37 +605,40 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     }
 
     return movie.genres!
-        .map((genre) => InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: () =>
-                  _openGenre(genre['id'] as int, genre['name'] as String),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(999),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      genre['name'] as String,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.arrow_outward_rounded,
-                        size: 14, color: Colors.white70),
-                  ],
-                ),
+        .map(
+          (genre) => InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () =>
+                _openGenre(genre['id'] as int, genre['name'] as String),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
-            ))
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    genre['name'] as String,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.arrow_outward_rounded,
+                    size: 14,
+                    color: Colors.white70,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
         .toList();
   }
 
@@ -637,7 +648,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     final trailerButton = ElevatedButton.icon(
       onPressed: _launchTrailer,
       icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
-      label: const Text('РўСЂРµР№Р»РµСЂ', style: TextStyle(color: Colors.black)),
+      label: const Text(
+        'РўСЂРµР№Р»РµСЂ',
+        style: TextStyle(color: Colors.black),
+      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -664,11 +678,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     if (isCompact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          trailerButton,
-          const SizedBox(height: 12),
-          watchlistButton,
-        ],
+        children: [trailerButton, const SizedBox(height: 12), watchlistButton],
       );
     }
 
@@ -726,7 +736,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             Text(
               'Количество просмотров: $_watchCount',
               style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w600),
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -757,9 +769,11 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         isInWatchlist: _isInWatchlist,
         onStatusChanged: (status) async {
           final auth = context.read<AuthProvider>();
-          await context
-              .read<WatchlistProvider>()
-              .updateStatus(movie.id, status, auth.userId);
+          await context.read<WatchlistProvider>().updateStatus(
+            movie.id,
+            status,
+            auth.userId,
+          );
           _checkStatuses();
         },
       ),
@@ -795,43 +809,63 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     itemBuilder: (context, index) {
                       final actor = _currentMovie.credits![index];
                       final profilePath = actor['profile_path'] as String?;
-                      return SizedBox(
-                        width: 86,
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.06),
-                                image: profilePath != null
-                                    ? DecorationImage(
-                                        image: CachedNetworkImageProvider(
-                                          'https://image.tmdb.org/t/p/w185$profilePath',
-                                        ),
-                                        fit: BoxFit.cover,
+                      final actorId = actor['id'] as int?;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: actorId != null
+                            ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ActorDetailScreen(
+                                      actorId: actorId,
+                                      actorName:
+                                          actor['name']?.toString() ?? '',
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
+                        child: SizedBox(
+                          width: 86,
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 72,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  image: profilePath != null
+                                      ? DecorationImage(
+                                          image: CachedNetworkImageProvider(
+                                            'https://image.tmdb.org/t/p/w185$profilePath',
+                                          ),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                                ),
+                                child: profilePath == null
+                                    ? const Icon(
+                                        Icons.person_outline_rounded,
+                                        color: Colors.white54,
                                       )
                                     : null,
                               ),
-                              child: profilePath == null
-                                  ? const Icon(Icons.person_outline_rounded,
-                                      color: Colors.white54)
-                                  : null,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              actor['name']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                              const SizedBox(height: 8),
+                              Text(
+                                actor['name']?.toString() ?? '',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -866,8 +900,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                                builder: (_) =>
-                                    MovieDetailScreen(movie: movie)),
+                              builder: (_) => MovieDetailScreen(movie: movie),
+                            ),
                           );
                         },
                         child: Container(
@@ -876,7 +910,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                             borderRadius: BorderRadius.circular(18),
                             color: Colors.white.withValues(alpha: 0.04),
                             border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08)),
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: Column(

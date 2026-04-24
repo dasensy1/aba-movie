@@ -11,7 +11,9 @@ import '../movie_detail_screen.dart';
 /// ============================================================================
 
 class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({super.key});
+  final Function(int)? onNavigateToTab;
+
+  const FavoritesScreen({super.key, this.onNavigateToTab});
 
   @override
   State<FavoritesScreen> createState() => _FavoritesScreenState();
@@ -60,11 +62,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           if (favoritesProvider.favorites.isEmpty) {
             return EmptyStateWidget(
               title: 'Нет избранных фильмов',
-              subtitle: 'Добавляйте фильмы в избранное,\nчтобы они появились здесь',
+              subtitle:
+                  'Добавляйте фильмы в избранное,\nчтобы они появились здесь',
               icon: Icons.favorite_border,
               action: ElevatedButton.icon(
                 onPressed: () {
-                  DefaultTabController.of(context).animateTo(0);
+                  widget.onNavigateToTab?.call(1);
                 },
                 icon: const Icon(Icons.search),
                 label: const Text('Найти фильмы'),
@@ -111,11 +114,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   color: Colors.red.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.favorite,
-                  color: Colors.red,
-                  size: 28,
-                ),
+                child: const Icon(Icons.favorite, color: Colors.red, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -132,10 +131,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     ),
                     Text(
                       'фильмов в избранном',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                     ),
                   ],
                 ),
@@ -148,7 +144,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
-              final crossAxisCount = width >= 1200 ? 6 : width >= 900 ? 5 : width >= 600 ? 4 : 3;
+              final crossAxisCount = width >= 1200
+                  ? 6
+                  : width >= 900
+                  ? 5
+                  : width >= 600
+                  ? 4
+                  : 3;
 
               return GridView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -226,9 +228,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Очистить'),
           ),
         ],

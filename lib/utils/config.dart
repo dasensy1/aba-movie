@@ -15,16 +15,16 @@ class AppConfig {
   // ================================================================
   // НАСТРОЙКИ ПРИЛОЖЕНИЯ
   // ================================================================
-  static const String appName = 'Movie Tracker';
+  static const String appName = 'Aba Movie';
   static const String appVersion = '1.0.0';
-  
+
   // Языки поддержки
   static const List<String> supportedLanguages = ['ru', 'en'];
   static String currentLanguage = 'ru';
-  
+
   // Тема по умолчанию
   static bool isDarkTheme = true;
-  
+
   // ================================================================
   // ДЕМО ДАННЫЕ (заглушки вместо API)
   // ================================================================

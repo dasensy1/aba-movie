@@ -1,5 +1,5 @@
-name: movie_tracker
-description: Movie Tracker App - локальное приложение для отслеживания фильмов.
+name: aba_movie
+description: Aba Movie - локальное приложение для отслеживания фильмов.
 publish_to: 'none'
 version: 1.0.0+1
 
