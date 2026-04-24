@@ -1,19 +1,18 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
-import '../services/local_database_service.dart';
+import '../services/supabase_service.dart';
 
 /// ============================================================================
-/// FAVORITES PROVIDER — Версия 2 (user-scoped)
+/// FAVORITES PROVIDER — Supabase Edition
 /// ============================================================================
-/// Провайдер для управления избранными фильмами.
-/// Данные привязаны к текущему пользователю через AuthProvider.userId.
+/// Провайдер для управления избранными фильмами через Supabase.
 /// ============================================================================
 
 class FavoritesProvider with ChangeNotifier {
-  final LocalDatabaseService _dbService = LocalDatabaseService();
+  final SupabaseService _supabase = SupabaseService();
 
   List<Movie> _favorites = [];
-  Set<int> _favoriteIds = {}; // Для быстрой проверки
+  Set<int> _favoriteIds = {};
   bool _isLoading = false;
   String? _error;
 
@@ -42,7 +41,14 @@ class FavoritesProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _favorites = await _dbService.getFavorites(userId);
+      final client = await _supabase.getClient();
+      final data = await client
+          .from('favorites')
+          .select()
+          .eq('user_id', userId)
+          .order('added_at', ascending: false);
+
+      _favorites = data.map((map) => _movieFromMap(map)).toList();
       _favoriteIds = _favorites.map((m) => m.id).toSet();
       _isLoading = false;
       notifyListeners();
@@ -51,6 +57,24 @@ class FavoritesProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Movie _movieFromMap(Map<String, dynamic> map) {
+    return Movie(
+      id: map['movie_id'] ?? map['id'] ?? 0,
+      title: map['title'] ?? 'Без названия',
+      overview: map['overview'],
+      posterPath: map['poster_path'],
+      backdropPath: map['backdrop_path'],
+      voteAverage: (map['vote_average'] ?? 0).toDouble(),
+      voteCount: map['vote_count'] ?? 0,
+      releaseDate: map['release_date'],
+      genreIds:
+          map['genre_ids'] != null && map['genre_ids'].toString().isNotEmpty
+              ? (map['genre_ids'] as String).split(',').map(int.parse).toList()
+              : [],
+      popularity: (map['popularity'] ?? 0).toDouble(),
+    );
   }
 
   /// Проверить, есть ли в избранном (синхронно)
@@ -64,13 +88,31 @@ class FavoritesProvider with ChangeNotifier {
 
     try {
       final isCurrentlyFavorite = _favoriteIds.contains(movie.id);
+      final client = await _supabase.getClient();
 
       if (isCurrentlyFavorite) {
-        await _dbService.removeFromFavorites(movie.id, userId);
+        await client
+            .from('favorites')
+            .delete()
+            .eq('movie_id', movie.id)
+            .eq('user_id', userId);
         _favorites.removeWhere((m) => m.id == movie.id);
         _favoriteIds.remove(movie.id);
       } else {
-        await _dbService.addToFavorites(movie, userId);
+        await client.from('favorites').insert({
+          'user_id': userId,
+          'movie_id': movie.id,
+          'title': movie.title,
+          'overview': movie.overview,
+          'poster_path': movie.posterPath,
+          'backdrop_path': movie.backdropPath,
+          'vote_average': movie.voteAverage,
+          'vote_count': movie.voteCount,
+          'release_date': movie.releaseDate,
+          'genre_ids': movie.genreIds.join(','),
+          'popularity': movie.popularity,
+          'added_at': DateTime.now().toIso8601String(),
+        });
         _favorites.insert(0, movie);
         _favoriteIds.add(movie.id);
       }
@@ -91,7 +133,22 @@ class FavoritesProvider with ChangeNotifier {
     try {
       if (_favoriteIds.contains(movie.id)) return false;
 
-      await _dbService.addToFavorites(movie, userId);
+      final client = await _supabase.getClient();
+      await client.from('favorites').insert({
+        'user_id': userId,
+        'movie_id': movie.id,
+        'title': movie.title,
+        'overview': movie.overview,
+        'poster_path': movie.posterPath,
+        'backdrop_path': movie.backdropPath,
+        'vote_average': movie.voteAverage,
+        'vote_count': movie.voteCount,
+        'release_date': movie.releaseDate,
+        'genre_ids': movie.genreIds.join(','),
+        'popularity': movie.popularity,
+        'added_at': DateTime.now().toIso8601String(),
+      });
+
       _favorites.insert(0, movie);
       _favoriteIds.add(movie.id);
       notifyListeners();
@@ -108,13 +165,17 @@ class FavoritesProvider with ChangeNotifier {
     if (userId == null) return false;
 
     try {
-      final removed = await _dbService.removeFromFavorites(movieId, userId);
-      if (removed) {
-        _favorites.removeWhere((m) => m.id == movieId);
-        _favoriteIds.remove(movieId);
-        notifyListeners();
-      }
-      return removed;
+      final client = await _supabase.getClient();
+      await client
+          .from('favorites')
+          .delete()
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
+
+      _favorites.removeWhere((m) => m.id == movieId);
+      _favoriteIds.remove(movieId);
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
@@ -127,7 +188,8 @@ class FavoritesProvider with ChangeNotifier {
     if (userId == null) return;
 
     try {
-      await _dbService.clearFavorites(userId);
+      final client = await _supabase.getClient();
+      await client.from('favorites').delete().eq('user_id', userId);
       _favorites = [];
       _favoriteIds = {};
       notifyListeners();

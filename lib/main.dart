@@ -3,34 +3,26 @@
 // ============================================================================
 
 import 'dart:ui' show PointerDeviceKind;
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/providers.dart';
 import 'screens/main_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'utils/config.dart';
 import 'utils/modern_ui.dart' as ui;
+import 'utils/supabase_config.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Инициализация базы данных в зависимости от платформы
-  if (kIsWeb) {
-    databaseFactory = createDatabaseFactoryFfiWeb(
-      options: SqfliteFfiWebOptions(
-        indexedDbName: 'movie_tracker_storage',
-      ),
-    );
-  } else if (defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.linux ||
-      defaultTargetPlatform == TargetPlatform.macOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
+  // Инициализация Supabase
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+  );
+  debugPrint('✅ Supabase initialized');
 
   runApp(const MovieTrackerApp());
 }
@@ -295,14 +287,18 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                                 animation: _controller,
                                 builder: (context, child) {
                                   return Container(
-                                    width: 140 * (0.5 + _controller.value * 0.5),
-                                    height: 140 * (0.5 + _controller.value * 0.5),
+                                    width:
+                                        140 * (0.5 + _controller.value * 0.5),
+                                    height:
+                                        140 * (0.5 + _controller.value * 0.5),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       gradient: RadialGradient(
                                         colors: [
-                                          ui.ModernColors.primaryPurple.withValues(alpha: 0.4),
-                                          ui.ModernColors.primaryPurple.withValues(alpha: 0),
+                                          ui.ModernColors.primaryPurple
+                                              .withValues(alpha: 0.4),
+                                          ui.ModernColors.primaryPurple
+                                              .withValues(alpha: 0),
                                         ],
                                       ),
                                     ),
@@ -345,7 +341,8 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                           FadeTransition(
                             opacity: CurvedAnimation(
                               parent: _controller,
-                              curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+                              curve: const Interval(0.5, 1.0,
+                                  curve: Curves.easeIn),
                             ),
                             child: Text(
                               'Отслеживай. Смотри. Наслаждайся.',
@@ -361,7 +358,8 @@ class _ModernSplashScreenState extends State<_ModernSplashScreen>
                           FadeTransition(
                             opacity: CurvedAnimation(
                               parent: _controller,
-                              curve: const Interval(0.6, 1.0, curve: Curves.easeIn),
+                              curve: const Interval(0.6, 1.0,
+                                  curve: Curves.easeIn),
                             ),
                             child: SizedBox(
                               width: 32,

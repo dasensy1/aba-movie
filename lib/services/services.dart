@@ -1,2 +1,2 @@
 export 'tmdb_api_service.dart';
-export 'local_database_service.dart';
+export 'supabase_service.dart';

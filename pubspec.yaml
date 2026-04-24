@@ -1,5 +1,5 @@
 name: movie_tracker
-description: Movie Tracker App - локальное приложение для отслеживания фильмов (без API).
+description: Movie Tracker App - локальное приложение для отслеживания фильмов.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -22,13 +22,11 @@ dependencies:
   # State Management
   provider: ^6.1.1
 
+  # Backend
+  supabase_flutter: ^2.0.0
+
   # Локальное хранилище
   shared_preferences: ^2.2.2
-  sqflite: ^2.3.2
-  sqflite_common: ^2.4.0
-  sqflite_common_ffi: ^2.3.0
-  sqflite_common_ffi_web: ^1.0.0
-  path: ^1.9.0
 
   # Утилиты
   fluttertoast: ^9.0.0

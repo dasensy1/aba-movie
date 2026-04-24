@@ -1,16 +1,9 @@
-// ============================================================================
-// WATCHLIST PROVIDER — Версия 2 (user-scoped)
-// ============================================================================
-// Трекинг фильмов со статусами, оценками, заметками, датами просмотра.
-// Данные привязаны к текущему пользователю через AuthProvider.userId.
-// ============================================================================
-
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
-import '../services/local_database_service.dart';
+import '../services/supabase_service.dart';
 
 class WatchlistProvider with ChangeNotifier {
-  final LocalDatabaseService _dbService = LocalDatabaseService();
+  final SupabaseService _supabase = SupabaseService();
 
   List<WatchlistMovie> _watchlist = [];
   List<WatchlistMovie> _wantToWatch = [];
@@ -61,7 +54,14 @@ class WatchlistProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _watchlist = await _dbService.getWatchlist(userId);
+      final client = await _supabase.getClient();
+      final data = await client
+          .from('watchlist')
+          .select()
+          .eq('user_id', userId)
+          .order('added_date', ascending: false);
+
+      _watchlist = data.map((map) => WatchlistMovie.fromMap(map)).toList();
       _categorizeMovies();
       await loadActivityLog(userId);
       _isLoading = false;
@@ -82,7 +82,52 @@ class WatchlistProvider with ChangeNotifier {
     }
 
     try {
-      _activityLog = await _dbService.getActivityLog(userId, limit: 20);
+      final client = await _supabase.getClient();
+      final results = await client
+          .from('watch_log')
+          .select('movie_id, status, watch_date')
+          .eq('user_id', userId)
+          .order('watch_date', ascending: false)
+          .limit(20);
+
+      final log = results.map((row) {
+        return {
+          'movie_id': row['movie_id'],
+          'status': row['status'],
+          'watch_date': row['watch_date'],
+        };
+      }).toList();
+
+      // Enrich with movie titles from watchlist
+      final enriched = <Map<String, dynamic>>[];
+      for (var entry in log) {
+        final movieId = entry['movie_id'] as int;
+        final watchlistItem = _watchlist.firstWhere(
+          (m) => m.movieId == movieId,
+          orElse: () => WatchlistMovie(
+            id: 0,
+            movieId: movieId,
+            imdbId: '',
+            title: 'Unknown',
+            posterPath: '',
+            status: WatchStatus.wantToWatch,
+            userRating: null,
+            notes: null,
+            watchedDate: null,
+            addedDate: DateTime.now(),
+            watchCount: 0,
+          ),
+        );
+        enriched.add({
+          'movie_id': movieId,
+          'title': watchlistItem.title,
+          'poster_path': watchlistItem.posterPath,
+          'status': entry['status'],
+          'watch_date': entry['watch_date'],
+        });
+      }
+
+      _activityLog = enriched;
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading activity log: $e');
@@ -91,37 +136,63 @@ class WatchlistProvider with ChangeNotifier {
   }
 
   void _categorizeMovies() {
-    _wantToWatch = _watchlist.where((m) => m.status == WatchStatus.wantToWatch).toList();
-    _watching = _watchlist.where((m) => m.status == WatchStatus.watching).toList();
-    _watched = _watchlist.where((m) => m.status == WatchStatus.watched).toList();
-    _dropped = _watchlist.where((m) => m.status == WatchStatus.dropped).toList();
+    _wantToWatch =
+        _watchlist.where((m) => m.status == WatchStatus.wantToWatch).toList();
+    _watching =
+        _watchlist.where((m) => m.status == WatchStatus.watching).toList();
+    _watched =
+        _watchlist.where((m) => m.status == WatchStatus.watched).toList();
+    _dropped =
+        _watchlist.where((m) => m.status == WatchStatus.dropped).toList();
   }
 
-  bool isInWatchlist(int movieId) => _watchlist.any((m) => m.movieId == movieId);
+  bool isInWatchlist(int movieId) =>
+      _watchlist.any((m) => m.movieId == movieId);
 
   WatchlistMovie? getWatchlistMovie(int movieId) {
-    try { return _watchlist.firstWhere((m) => m.movieId == movieId); } catch (e) { return null; }
+    try {
+      return _watchlist.firstWhere((m) => m.movieId == movieId);
+    } catch (e) {
+      return null;
+    }
   }
 
-  /// Добавить фильм в watchlist с опциональной датой просмотра
-  Future<bool> addToWatchlist(dynamic movie, int? userId, {WatchStatus status = WatchStatus.wantToWatch, DateTime? watchedDate}) async {
+  /// Добавить фильм в watchlist
+  Future<bool> addToWatchlist(dynamic movie, int? userId,
+      {WatchStatus status = WatchStatus.wantToWatch,
+      DateTime? watchedDate}) async {
     if (userId == null) return false;
 
     try {
       if (isInWatchlist(movie.id)) return false;
 
-      // Проверка на будущую дату
       if (watchedDate != null && watchedDate.isAfter(DateTime.now())) {
         _error = 'Нельзя установить будущую дату просмотра';
         return false;
       }
 
-      final watchlistMovie = WatchlistMovie.fromMovie(movie, status: status).copyWith(
+      final watchlistMovie =
+          WatchlistMovie.fromMovie(movie, status: status).copyWith(
         watchedDate: watchedDate,
         watchCount: status == WatchStatus.watched ? 1 : 0,
       );
 
-      await _dbService.addToWatchlist(watchlistMovie, userId);
+      final client = await _supabase.getClient();
+      await client.from('watchlist').insert({
+        'user_id': userId,
+        'movie_id': movie.id,
+        'imdb_id': movie.imdbId,
+        'title': movie.title,
+        'poster_path': movie.posterPath,
+        'status': status.name,
+        'user_rating': null,
+        'notes': null,
+        'watched_date': watchedDate?.toIso8601String(),
+        'added_date': DateTime.now().toIso8601String(),
+        'watch_count': status == WatchStatus.watched ? 1 : 0,
+      });
+
+      await _logActivity(userId, movie.id, status.name, DateTime.now());
 
       _watchlist.insert(0, watchlistMovie);
       _categorizeMovies();
@@ -135,8 +206,9 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
-  /// Обновить статус фильма с опциональной датой просмотра
-  Future<bool> updateStatus(int movieId, WatchStatus status, int? userId, {DateTime? watchedDate}) async {
+  /// Обновить статус фильма
+  Future<bool> updateStatus(int movieId, WatchStatus status, int? userId,
+      {DateTime? watchedDate}) async {
     if (userId == null) return false;
 
     try {
@@ -146,26 +218,42 @@ class WatchlistProvider with ChangeNotifier {
       final movie = _watchlist[index];
       DateTime? finalWatchedDate = watchedDate ?? movie.watchedDate;
 
-      // Проверка на будущую дату
-      if (finalWatchedDate != null && finalWatchedDate.isAfter(DateTime.now())) {
+      if (finalWatchedDate != null &&
+          finalWatchedDate.isAfter(DateTime.now())) {
         _error = 'Нельзя установить будущую дату просмотра';
         return false;
       }
 
-      // Если статус "просмотрено" и даты нет, ставим текущую
       if (status == WatchStatus.watched && finalWatchedDate == null) {
         finalWatchedDate = DateTime.now();
       }
 
       final now = DateTime.now();
 
-      await _dbService.updateWatchlistStatus(movieId, status, userId, watchedDate: finalWatchedDate, addedDate: now);
+      final client = await _supabase.getClient();
+      await client
+          .from('watchlist')
+          .update({
+            'status': status.name,
+            'added_date': now.toIso8601String(),
+            if (finalWatchedDate != null)
+              'watched_date': finalWatchedDate.toIso8601String(),
+            'watch_count': status == WatchStatus.watched
+                ? movie.watchCount + 1
+                : movie.watchCount,
+          })
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
+
+      await _logActivity(userId, movieId, status.name, now);
 
       _watchlist[index] = movie.copyWith(
         status: status,
         addedDate: now,
         watchedDate: finalWatchedDate,
-        watchCount: status == WatchStatus.watched ? (movie.watchCount > 0 ? movie.watchCount : 1) : movie.watchCount,
+        watchCount: status == WatchStatus.watched
+            ? movie.watchCount + 1
+            : movie.watchCount,
       );
 
       _categorizeMovies();
@@ -186,21 +274,14 @@ class WatchlistProvider with ChangeNotifier {
       if (index == -1) return false;
 
       final movie = _watchlist[index];
+      final updatedMovie = movie.copyWith(userRating: rating);
 
-      final updatedMovie = WatchlistMovie(
-        id: movie.id,
-        movieId: movie.movieId,
-        imdbId: movie.imdbId,
-        title: movie.title,
-        posterPath: movie.posterPath,
-        status: movie.status,
-        userRating: rating,
-        notes: movie.notes,
-        watchedDate: movie.watchedDate,
-        addedDate: movie.addedDate,
-      );
-
-      await _dbService.updateWatchlistRating(movieId, rating, userId);
+      final client = await _supabase.getClient();
+      await client
+          .from('watchlist')
+          .update({'user_rating': rating})
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
 
       _watchlist[index] = updatedMovie;
       notifyListeners();
@@ -218,21 +299,14 @@ class WatchlistProvider with ChangeNotifier {
       if (index == -1) return false;
 
       final movie = _watchlist[index];
+      final updatedMovie = movie.copyWith(notes: notes);
 
-      final updatedMovie = WatchlistMovie(
-        id: movie.id,
-        movieId: movie.movieId,
-        imdbId: movie.imdbId,
-        title: movie.title,
-        posterPath: movie.posterPath,
-        status: movie.status,
-        userRating: movie.userRating,
-        notes: notes,
-        watchedDate: movie.watchedDate,
-        addedDate: movie.addedDate,
-      );
-
-      await _dbService.updateWatchlistNotes(movieId, notes, userId);
+      final client = await _supabase.getClient();
+      await client
+          .from('watchlist')
+          .update({'notes': notes})
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
 
       _watchlist[index] = updatedMovie;
       notifyListeners();
@@ -242,7 +316,8 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> incrementWatchCount(int movieId, int? userId, {DateTime? watchedDate}) async {
+  Future<bool> incrementWatchCount(int movieId, int? userId,
+      {DateTime? watchedDate}) async {
     if (userId == null) return false;
 
     try {
@@ -252,13 +327,31 @@ class WatchlistProvider with ChangeNotifier {
       final movie = _watchlist[index];
       final now = watchedDate ?? DateTime.now();
 
-      // Проверка на будущую дату
       if (watchedDate != null && watchedDate.isAfter(DateTime.now())) {
         _error = 'Нельзя установить будущую дату просмотра';
         return false;
       }
 
-      await _dbService.addWatchLogEntry(movieId, now, userId);
+      final client = await _supabase.getClient();
+      await client.from('watch_log').insert({
+        'user_id': userId,
+        'movie_id': movieId,
+        'status': 'watched',
+        'watch_date': now.toIso8601String(),
+      });
+
+      await client
+          .from('watchlist')
+          .update({
+            'watch_count': movie.watchCount + 1,
+            'status': 'watched',
+            'watched_date': now.toIso8601String(),
+            'added_date': now.toIso8601String(),
+          })
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
+
+      await _logActivity(userId, movieId, 'watched', now);
 
       _watchlist[index] = movie.copyWith(
         watchCount: movie.watchCount + 1,
@@ -280,7 +373,18 @@ class WatchlistProvider with ChangeNotifier {
     if (userId == null) return false;
 
     try {
-      await _dbService.removeFromWatchlist(movieId, userId);
+      final client = await _supabase.getClient();
+      await client
+          .from('watch_log')
+          .delete()
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
+      await client
+          .from('watchlist')
+          .delete()
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
+
       _watchlist.removeWhere((m) => m.movieId == movieId);
       _categorizeMovies();
       await loadActivityLog(userId);
@@ -296,7 +400,10 @@ class WatchlistProvider with ChangeNotifier {
     if (userId == null) return;
 
     try {
-      await _dbService.clearWatchlist(userId);
+      final client = await _supabase.getClient();
+      await client.from('watch_log').delete().eq('user_id', userId);
+      await client.from('watchlist').delete().eq('user_id', userId);
+
       _watchlist = [];
       _wantToWatch = [];
       _watching = [];
@@ -310,24 +417,42 @@ class WatchlistProvider with ChangeNotifier {
     }
   }
 
+  Future<void> _logActivity(
+      int userId, int movieId, String status, DateTime date) async {
+    try {
+      final client = await _supabase.getClient();
+      await client.from('watch_log').insert({
+        'user_id': userId,
+        'movie_id': movieId,
+        'status': status,
+        'watch_date': date.toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Error logging activity: $e');
+    }
+  }
+
   Map<String, dynamic> getStatistics() {
     int totalWatches = 0;
     for (var m in _watchlist) {
       totalWatches += m.watchCount;
     }
     final watchedMovies = _watched;
-    final totalRatings = watchedMovies.where((m) => m.userRating != null).length;
+    final totalRatings =
+        watchedMovies.where((m) => m.userRating != null).length;
     final averageRating = totalRatings > 0
         ? watchedMovies
-            .where((m) => m.userRating != null)
-            .map((m) => m.userRating!)
-            .reduce((a, b) => a + b) / totalRatings
+                .where((m) => m.userRating != null)
+                .map((m) => m.userRating!)
+                .reduce((a, b) => a + b) /
+            totalRatings
         : 0.0;
 
     final byMonth = <String, int>{};
     for (final movie in watchedMovies) {
       if (movie.watchedDate != null) {
-        final key = '${movie.watchedDate!.year}-${movie.watchedDate!.month.toString().padLeft(2, '0')}';
+        final key =
+            '${movie.watchedDate!.year}-${movie.watchedDate!.month.toString().padLeft(2, '0')}';
         byMonth[key] = (byMonth[key] ?? 0) + 1;
       }
     }
