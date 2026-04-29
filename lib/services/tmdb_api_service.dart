@@ -77,32 +77,72 @@ class TmdbApiService {
     }
   }
 
-  Future<List<Movie>> searchMovies(
-    String query, {
-    int? year,
-    String? genre,
+   Future<List<Movie>> searchMovies({
+    required String query,
+    int? genreId,
+    int? minYear,
+    int? maxYear,
+    double? minRating,
     String? sortBy,
+    bool? sortAscending,
   }) async {
-    if (query.trim().isEmpty && (year == null && genre == null)) return [];
+    if (query.trim().isEmpty &&
+        genreId == null &&
+        minYear == null && maxYear == null) {
+      return [];
+    }
+
     try {
       debugPrint(
-        'TMDB Search: query="$query" year=$year genre=$genre sort=$sortBy',
+        'TMDB Search: query="$query" genreId=$genreId minYear=$minYear maxYear=$maxYear minRating=$minRating sortBy=$sortBy asc=$sortAscending',
       );
-      String url;
-      if (query.trim().isNotEmpty) {
-        url =
-            '$_baseUrl/search/movie?query=${Uri.encodeComponent(query)}&language=ru-RU';
-        if (year != null) url += '&year=$year';
-        if (genre != null) url += '&with_genres=$genre';
-      } else if (genre != null) {
-        url = '$_baseUrl/discover/movie?language=ru-RU&with_genres=$genre';
-      } else {
-        url = '$_baseUrl/discover/movie?language=ru-RU&year=$year';
+
+      final StringBuffer url = StringBuffer(
+        '$_baseUrl/search/movie?query=${Uri.encodeComponent(query)}&language=ru-RU',
+      );
+
+      if (genreId != null && genreId > 0) {
+        url.write('&with_genres=$genreId');
       }
-      if (sortBy != null && sortBy.isNotEmpty) url += '&sort_by=$sortBy';
+      if (minYear != null) {
+        url.write('&primary_release_date.gte=$minYear-01-01');
+      }
+      if (maxYear != null) {
+        url.write('&primary_release_date.lte=$maxYear-12-31');
+      }
+      if (minRating != null && minRating > 0) {
+        url.write('&vote_average.gte=$minRating');
+      }
+      if (sortBy != null && sortBy.isNotEmpty) {
+        String? sortField;
+        switch (sortBy) {
+          case 'rating':
+            sortField = 'vote_average';
+            break;
+          case 'year':
+            sortField = 'release_date';
+            break;
+          case 'popularity':
+            sortField = 'popularity';
+            break;
+          case 'title':
+            // TMDb does not support title sorting for search; skip server-side sort
+            sortField = null;
+            break;
+          default:
+            sortField = null;
+        }
+        if (sortField != null) {
+          // TMDb default is descending for most fields; follow UI direction
+          final direction = (sortAscending == false) ? '.desc' : '.asc';
+          url.write('&sort_by=$sortField$direction');
+        }
+      }
+
       final response = await http
-          .get(Uri.parse(url), headers: _headers)
+          .get(Uri.parse(url.toString()), headers: _headers)
           .timeout(const Duration(seconds: 10));
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;

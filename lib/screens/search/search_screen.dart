@@ -32,18 +32,26 @@ class _SearchScreenState extends State<SearchScreen>
   final FocusNode _focusNode = FocusNode();
   Timer? _debounceTimer;
   
-  // Состояние UI
-  bool _showFilters = false;
-  late AnimationController _filterAnimationController;
-  late Animation<double> _filterAnimation;
-  
-  // Жанры для фильтрации (будут загружены из TMDb)
-  List<String> _genres = ['Все'];
-  
-  // История поиска
-  final List<String> _recentSearches = [
-    'Начало', 'Матрица', 'Бойцовский клуб', 'Интерстеллар'
-  ];
+   // Состояние UI
+   bool _showFilters = false;
+   late AnimationController _filterAnimationController;
+   late Animation<double> _filterAnimation;
+   
+   // Жанры для фильтрации (будут загружены из TMDb)
+   List<String> _genres = ['Все'];
+   
+   // Фильтры (UI state)
+   String _selectedGenre = '';
+   double _minRating = 0;
+   int? _minYear;
+   int? _maxYear;
+   String _sortBy = 'rating';
+   bool _sortAscending = false;
+   
+   // История поиска
+   final List<String> _recentSearches = [
+     'Начало', 'Матрица', 'Бойцовский клуб', 'Интерстеллар'
+   ];
 
   @override
   void initState() {
@@ -143,52 +151,71 @@ class _SearchScreenState extends State<SearchScreen>
     });
   }
 
-  /// Применить фильтры
-  void _applyFilters({
-    String? genre,
-    double? minRating,
-    int? minYear,
-    int? maxYear,
-    String? sortBy,
-    bool? sortAscending,
-  }) {
-    final currentFilters = context.read<MoviesProvider>().filters;
-    
-    // Если выбран "Все", то сбрасываем жанр
-    final selectedGenre = (genre == null || genre == 'Все') ? '' : genre;
-    
-    debugPrint('========================================');
-    debugPrint('=== ПРИМЕНЕНИЕ ФИЛЬТРОВ ИЗ UI ===');
-    debugPrint('Выбранный жанр (из UI): "$genre"');
-    debugPrint('После обработки: "$selectedGenre"');
-    debugPrint('Рейтинг: $minRating');
-    debugPrint('Год: $minYear - $maxYear');
-    debugPrint('Сортировка: $sortBy (${sortAscending == true ? "возр" : "убыв"})');
-    debugPrint('Текущий searchQuery: "${currentFilters.searchQuery}"');
-    debugPrint('========================================');
-    
-    final newFilters = currentFilters.copyWith(
-      selectedGenre: selectedGenre,
-      minRating: minRating ?? 0,
-      minYear: minYear,
-      maxYear: maxYear,
-      sortBy: sortBy ?? currentFilters.sortBy,
-      sortAscending: sortAscending ?? currentFilters.sortAscending,
-    );
+   /// Применить фильтры
+   void _applyFilters({
+     String? genre,
+     double? minRating,
+     int? minYear,
+     int? maxYear,
+     String? sortBy,
+     bool? sortAscending,
+   }) {
+     final currentFilters = context.read<MoviesProvider>().filters;
+     
+     // Если выбран "Все", то сбрасываем жанр
+     final selectedGenre = (genre == null || genre == 'Все') ? '' : genre;
+     
+     debugPrint('========================================');
+     debugPrint('=== ПРИМЕНЕНИЕ ФИЛЬТРОВ ИЗ UI ===');
+     debugPrint('Выбранный жанр (из UI): "$genre"');
+     debugPrint('После обработки: "$selectedGenre"');
+     debugPrint('Рейтинг: $minRating');
+     debugPrint('Год: $minYear - $maxYear');
+     debugPrint('Сортировка: $sortBy (${sortAscending == true ? "возр" : "убыв"})');
+     debugPrint('Текущий searchQuery: "${currentFilters.searchQuery}"');
+     debugPrint('========================================');
+     
+     final newFilters = currentFilters.copyWith(
+       selectedGenre: selectedGenre,
+       minRating: minRating ?? 0,
+       minYear: minYear,
+       maxYear: maxYear,
+       sortBy: sortBy ?? currentFilters.sortBy,
+       sortAscending: sortAscending ?? currentFilters.sortAscending,
+     );
 
-    debugPrint('Применяем фильтры к MoviesProvider...');
-    context.read<MoviesProvider>().applyFilters(newFilters);
-    debugPrint('Фильтры применены');
-    debugPrint('========================================');
-  }
+     debugPrint('Применяем фильтры к MoviesProvider...');
+     context.read<MoviesProvider>().applyFilters(newFilters);
+     
+     // Update local UI state to reflect the applied filters
+     setState(() {
+       _selectedGenre = selectedGenre;
+       if (minRating != null) _minRating = minRating;
+       _minYear = minYear;
+       _maxYear = maxYear;
+       if (sortBy != null) _sortBy = sortBy;
+       if (sortAscending != null) _sortAscending = sortAscending;
+     });
+     
+     debugPrint('Фильтры применены');
+     debugPrint('========================================');
+   }
 
-  /// Сбросить все фильтры
-  void _resetFilters() {
-    context.read<MoviesProvider>().resetFilters();
-    setState(() {
-      _searchController.clear();
-    });
-  }
+   /// Сбросить все фильтры
+   void _resetFilters() {
+     setState(() {
+       _selectedGenre = '';
+       _minRating = 0;
+       _minYear = null;
+       _maxYear = null;
+       _sortBy = 'rating';
+       _sortAscending = false;
+     });
+     context.read<MoviesProvider>().resetFilters();
+     setState(() {
+       _searchController.clear();
+     });
+   }
 
   /// Открыть панель фильтров как bottom sheet
   void _openFilterSheet() {
@@ -203,6 +230,12 @@ class _SearchScreenState extends State<SearchScreen>
         debugPrint('Создаем _FilterSheet');
         return _FilterSheet(
           genres: _genres,
+          initialGenre: _selectedGenre,
+          initialMinRating: _minRating,
+          initialMinYear: _minYear,
+          initialMaxYear: _maxYear,
+          initialSortBy: _sortBy,
+          initialSortAscending: _sortAscending,
           onApply: (
             {String? genre,
             double? minRating,
@@ -565,6 +598,21 @@ class _SearchScreenState extends State<SearchScreen>
 /// FILTER SHEET - МОДАЛЬНОЕ ОКНО ФИЛЬТРОВ
 /// ============================================================================
 
+/// Custom clipper for rendering partial/fractional stars
+class _StarClipper extends CustomClipper<Rect> {
+  final double percentage;
+
+  const _StarClipper({required this.percentage});
+
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTWH(0, 0, size.width * (percentage / 100), size.height);
+  }
+
+  @override
+  bool shouldReclip(_StarClipper oldClipper) => oldClipper.percentage != percentage;
+}
+
 class _FilterSheet extends StatefulWidget {
   final List<String> genres;
   final Function({
@@ -577,10 +625,23 @@ class _FilterSheet extends StatefulWidget {
   }) onApply;
   final VoidCallback onReset;
 
+  final String initialGenre;
+  final double initialMinRating;
+  final int? initialMinYear;
+  final int? initialMaxYear;
+  final String initialSortBy;
+  final bool initialSortAscending;
+
   const _FilterSheet({
     required this.genres,
     required this.onApply,
     required this.onReset,
+    required this.initialGenre,
+    required this.initialMinRating,
+    required this.initialMinYear,
+    required this.initialMaxYear,
+    required this.initialSortBy,
+    required this.initialSortAscending,
   });
 
   @override
@@ -588,16 +649,23 @@ class _FilterSheet extends StatefulWidget {
 }
 
 class _FilterSheetState extends State<_FilterSheet> {
-  String _selectedGenre = '';
-  double _minRating = 0;
-  int? _minYear;
-  int? _maxYear;
-  String _sortBy = 'rating';
-  bool _sortAscending = false;
+  late String _selectedGenre;
+  late double _minRating;
+  late int? _minYear;
+  late int? _maxYear;
+  late String _sortBy;
+  late bool _sortAscending;
 
-  final List<String> _sortOptions = [
-    'rating', 'year', 'title'
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _selectedGenre = widget.initialGenre;
+    _minRating = widget.initialMinRating;
+    _minYear = widget.initialMinYear;
+    _maxYear = widget.initialMaxYear;
+    _sortBy = widget.initialSortBy;
+    _sortAscending = widget.initialSortAscending;
+   }
 
   @override
   Widget build(BuildContext context) {
@@ -615,21 +683,21 @@ class _FilterSheetState extends State<_FilterSheet> {
           // Контент фильтров
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Жанр
                   _buildGenreSection(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   
                   // Рейтинг
                   _buildRatingSection(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   
                   // Год выпуска
                   _buildYearSection(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   
                   // Сортировка
                   _buildSortSection(),
@@ -674,7 +742,7 @@ class _FilterSheetState extends State<_FilterSheet> {
     );
   }
 
-  /// Секция жанров
+   /// Секция жанров
   Widget _buildGenreSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,32 +761,35 @@ class _FilterSheetState extends State<_FilterSheet> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: widget.genres.map((genre) {
-            final isSelected = genre == 'Все' 
-                ? _selectedGenre.isEmpty 
-                : _selectedGenre == genre;
-            return ChoiceChip(
-              label: Text(genre),
-              selected: isSelected,
-              selectedColor: ModernColors.primaryPurple,
-              backgroundColor: const Color(0xFF2A2A2A),
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              onSelected: (selected) {
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedGenre.isEmpty ? null : _selectedGenre,
+              hint: const Text('Все жанры', style: TextStyle(color: Colors.white70)),
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+              dropdownColor: const Color(0xFF2A2A2A),
+              style: const TextStyle(color: Colors.white),
+              items: widget.genres.map((genre) {
+                return DropdownMenuItem(
+                  value: genre == 'Все' ? '' : genre,
+                  child: Text(genre),
+                );
+              }).toList(),
+              onChanged: (value) {
                 setState(() {
-                  _selectedGenre = genre == 'Все' ? '' : genre;
-                  debugPrint('=== ВЫБРАН ЖАНР В UI ===');
-                  debugPrint('Выбран: "$genre" -> _selectedGenre="$_selectedGenre"');
+                  _selectedGenre = value ?? '';
                 });
               },
-            );
-          }).toList(),
+            ),
+          ),
         ),
       ],
     );
@@ -726,6 +797,8 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   /// Секция рейтинга
   Widget _buildRatingSection() {
+    final stars = _minRating / 2;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -745,8 +818,8 @@ class _FilterSheetState extends State<_FilterSheet> {
             Text(
               _minRating.toStringAsFixed(1),
               style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
                 color: Colors.amber,
               ),
             ),
@@ -754,35 +827,55 @@ class _FilterSheetState extends State<_FilterSheet> {
         ),
         const SizedBox(height: 12),
         Row(
-          children: [
-            Icon(Icons.star_border_rounded, size: 16, color: Colors.white.withValues(alpha: 0.3)),
-            Expanded(
-              child: SliderTheme(
-                data: SliderThemeData(
-                  activeTrackColor: Colors.amber,
-                  inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
-                  thumbColor: Colors.amber,
-                  overlayColor: Colors.amber.withValues(alpha: 0.2),
-                  trackHeight: 6,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-                ),
-                child: Slider(
-                  value: _minRating,
-                  min: 0,
-                  max: 10,
-                  divisions: 20,
-                  label: _minRating.toStringAsFixed(1),
-                  onChanged: (value) {
-                    setState(() {
-                      _minRating = value;
-                    });
-                  },
-                ),
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(5, (index) {
+            final starValue = index + 1;
+            final starsFloat = _minRating / 2;
+            final isActive = starsFloat >= starValue;
+            final isHalfActive = !isActive && starsFloat > index && starsFloat < starValue;
+
+            return GestureDetector(
+              onTapDown: (details) {
+                final tapX = details.localPosition.dx;
+                final isLeftHalf = tapX < 16;
+                final newRating = isLeftHalf
+                    ? (starValue - 0.5) * 2
+                    : starValue * 2.0;
+                setState(() {
+                  _minRating = newRating.clamp(0.0, 10.0);
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: isHalfActive
+                    ? Stack(
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          const Icon(Icons.star_border, color: Colors.amber, size: 28),
+                          ClipRect(
+                            clipper: _StarClipper(percentage: (starsFloat - index) * 100),
+                            child: const Icon(Icons.star, color: Colors.amber, size: 28),
+                          ),
+                        ],
+                      )
+                    : Icon(
+                        isActive ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 28,
+                      ),
               ),
-            ),
-            Icon(Icons.star_rounded, size: 16, color: Colors.amber),
-          ],
+            );
+          }),
         ),
+        // Quick reset
+        if (_minRating > 0)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => setState(() => _minRating = 0),
+              child: const Text('Сбросить', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ),
+          ),
       ],
     );
   }
@@ -881,105 +974,86 @@ class _FilterSheetState extends State<_FilterSheet> {
     );
   }
 
-  /// Секция сортировки
+   /// Секция сортировки
   Widget _buildSortSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Icon(Icons.sort_rounded, size: 20, color: ModernColors.accentPink),
-            const SizedBox(width: 8),
-            const Text(
-              'Сортировка',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
+        Icon(Icons.sort_rounded, size: 20, color: ModernColors.accentPink),
+        const SizedBox(width: 8),
+        const Text(
+          'Сортировка',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
-        const SizedBox(height: 12),
-        
-        // Выбор типа сортировки
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _buildSortChip('По рейтингу', 'rating'),
-            _buildSortChip('По году', 'year'),
-            _buildSortChip('По названию', 'title'),
-          ],
-        ),
-        const SizedBox(height: 12),
-        
-        // Направление сортировки
-        Row(
-          children: [
-            Icon(
-              _sortAscending 
-                  ? Icons.arrow_upward_rounded 
-                  : Icons.arrow_downward_rounded,
-              size: 20,
-              color: ModernColors.accentPink,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _sortAscending ? 'По возрастанию' : 'По убыванию',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-            ),
-            const Spacer(),
-            Switch(
-              value: _sortAscending,
+        const Spacer(),
+        // Sort type dropdown
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _sortBy,
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+              dropdownColor: const Color(0xFF2A2A2A),
+              style: const TextStyle(color: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'rating', child: Text('По рейтингу')),
+                DropdownMenuItem(value: 'year', child: Text('По году')),
+                DropdownMenuItem(value: 'title', child: Text('По названию')),
+              ],
               onChanged: (value) {
-                setState(() {
-                  _sortAscending = value;
-                });
+                if (value != null) {
+                  setState(() {
+                    _sortBy = value;
+                  });
+                }
               },
-              activeColor: ModernColors.accentPink,
             ),
-          ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Sort direction toggle
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _sortAscending = !_sortAscending;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Icon(
+              _sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+              color: ModernColors.accentPink,
+              size: 20,
+            ),
+          ),
         ),
       ],
     );
-  }
+   }
 
-  /// Чип сортировки
-  Widget _buildSortChip(String label, String value) {
-    final isSelected = _sortBy == value;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: ModernColors.accentPink,
-      backgroundColor: const Color(0xFF2A2A2A),
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7),
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      ),
-      onSelected: (selected) {
-        if (selected) {
-          setState(() {
-            _sortBy = value;
-          });
-        }
-      },
-    );
-  }
-
-  /// Кнопки действий
-  Widget _buildActionButtons() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-      ),
+   /// Кнопки действий
+   Widget _buildActionButtons() {
+     return Container(
+       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+       decoration: BoxDecoration(
+         color: const Color(0xFF1E1E1E),
+         border: const Border(
+           top: BorderSide(color: Color(0x1AFFFFFF)),
+         ),
+       ),
       child: Row(
         children: [
           Expanded(

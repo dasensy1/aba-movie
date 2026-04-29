@@ -40,8 +40,7 @@ class MoviesProvider with ChangeNotifier {
 
   // Getters
   List<Movie> get trendingMovies => _trendingMovies;
-  List<Movie> get searchResults =>
-      _filteredResults.isNotEmpty ? _filteredResults : _searchResults;
+  List<Movie> get searchResults => _filteredResults;
   List<Movie> get rawSearchResults => _searchResults; // Без фильтрации
   List<Movie> get popularMovies => _popularMovies;
   List<Movie> get topRatedMovies => _topRatedMovies;
@@ -87,198 +86,190 @@ class MoviesProvider with ChangeNotifier {
     }
   }
 
-  /// ============================================================================
-  /// ПОИСК (TMDb API)
-  /// ============================================================================
-  Future<void> searchMovies(String query) async {
-    if (query.trim().isEmpty) {
-      _searchResults = [];
-      _filteredResults = [];
-      _searchQuery = '';
-      _filters = _filters.reset();
-      notifyListeners();
-      return;
-    }
+   /// ============================================================================
+   /// ПОИСК (TMDb API)
+   /// ============================================================================
+   Future<void> searchMovies(String query) async {
+     if (query.trim().isEmpty) {
+       _searchResults = [];
+       _filteredResults = [];
+       _searchQuery = '';
+       _filters = _filters.reset();
+       notifyListeners();
+       return;
+     }
 
-    _isLoadingSearch = true;
-    _error = null;
-    _searchQuery = query;
-    _filters = _filters.copyWith(searchQuery: query);
-    notifyListeners();
+     _isLoadingSearch = true;
+     _error = null;
+     _searchQuery = query;
+     _filters = _filters.copyWith(searchQuery: query);
+     notifyListeners();
 
-    try {
-      _searchResults = await _apiService.searchMovies(query);
+     try {
+       // Convert genre name to ID
+       int? genreId;
+       if (_filters.selectedGenre.isNotEmpty) {
+         final genre = _genres.firstWhere(
+           (g) => g.name.toLowerCase() == _filters.selectedGenre.toLowerCase(),
+           orElse: () => Genre(id: 0, name: ''),
+         );
+         if (genre.id > 0) {
+           genreId = genre.id;
+         }
+       }
 
-      // Добавляем в историю поиска
-      if (!_searchHistory.contains(query)) {
-        _searchHistory.insert(0, query);
-        if (_searchHistory.length > 10) {
-          _searchHistory.removeLast();
-        }
-      }
+        // Fetch from API with all filters applied server-side
+        _searchResults = await _apiService.searchMovies(
+          query: query,
+          genreId: genreId,
+          minYear: _filters.minYear,
+          maxYear: _filters.maxYear,
+          minRating: _filters.minRating > 0 ? _filters.minRating : null,
+          sortBy: _filters.sortBy,
+          sortAscending: _filters.sortAscending,
+        );
 
-      // Применяем текущие фильтры
-      _applyFilters();
-
-      _isLoadingSearch = false;
-      notifyListeners();
-    } catch (e) {
-      _error = 'Ошибка поиска: $e';
-      _isLoadingSearch = false;
-      notifyListeners();
-    }
-  }
-
-  /// ============================================================================
-  /// РАСШИРЕННЫЕ ФИЛЬТРЫ
-  /// ============================================================================
-
-  /// Применить фильтры к результатам поиска
-  void applyFilters(SearchFilters newFilters) {
-    _filters = newFilters;
-    _applyFilters();
-    notifyListeners();
-  }
-
-  /// Сбросить фильтры
-  void resetFilters() {
-    _filters = _filters.reset();
-    _filteredResults = [];
-    notifyListeners();
-  }
-
-  /// Внутренний метод для применения фильтров
-  void _applyFilters() {
-    debugPrint('=== ПРИМЕНЕНИЕ ФИЛЬТРОВ ===');
-    debugPrint('Всего результатов поиска: ${_searchResults.length}');
-    debugPrint('Фильтр - жанр: "${_filters.selectedGenre}"');
-    debugPrint('Фильтр - рейтинг: ${_filters.minRating}');
-    debugPrint('Фильтр - год: ${_filters.minYear} - ${_filters.maxYear}');
-    debugPrint(
-        'Фильтр - сортировка: ${_filters.sortBy} (${_filters.sortAscending ? "возр" : "убыв"})');
-    debugPrint('Загружено жанров из TMDb: ${_genres.length}');
-
-    if (_searchResults.isEmpty) {
-      _filteredResults = [];
-      debugPrint('Результаты пустые - filteredResults очищен');
-      return;
-    }
-
-    var filtered = _searchResults;
-    debugPrint('До фильтрации: ${filtered.length} фильмов');
-
-    // Фильтр по жанру (используем genreIds из Movie)
-    if (_filters.selectedGenre.isNotEmpty) {
-      // Найдем ID жанра по имени
-      final genre = _genres.firstWhere(
-        (g) => g.name.toLowerCase() == _filters.selectedGenre.toLowerCase(),
-        orElse: () => Genre(id: 0, name: ''),
-      );
-
-      debugPrint('Найден жанр "${_filters.selectedGenre}" с ID=${genre.id}');
-
-      if (genre.id > 0) {
-        filtered = filtered.where((movie) {
-          final hasGenre = movie.genreIds.contains(genre.id);
-          if (hasGenre) {
-            debugPrint('  ✓ ${movie.title} имеет жанр ID=${genre.id}');
+        // Add to search history
+        if (!_searchHistory.contains(query)) {
+          _searchHistory.insert(0, query);
+          if (_searchHistory.length > 10) {
+            _searchHistory.removeLast();
           }
-          return hasGenre;
-        }).toList();
-        debugPrint('После фильтра по жанру: ${filtered.length} фильмов');
+        }
+
+        // Apply client-side rating filter since TMDb search endpoint doesn't support vote_average.gte
+        List<Movie> filteredResults = _searchResults;
+        if (_filters.minRating > 0) {
+          filteredResults = _searchResults
+              .where((movie) => movie.voteAverage >= _filters.minRating)
+              .toList();
+          debugPrint(
+              'Client-side rating filter (minRating=${_filters.minRating}): ${_searchResults.length} -> ${filteredResults.length}');
+        }
+
+        _filteredResults = filteredResults;
+        _isLoadingSearch = false;
+        notifyListeners();
+      } catch (e) {
+        _error = 'Ошибка поиска: $e';
+        _isLoadingSearch = false;
+        notifyListeners();
+      }
+    }
+
+    /// Применить фильтры к результатам поиска
+    void applyFilters(SearchFilters newFilters) {
+      _filters = newFilters;
+      
+      // If there's an active search query, re-fetch with new filters
+      if (_searchQuery.isNotEmpty) {
+        _isLoadingSearch = true;
+        notifyListeners();
+        
+        // Convert genre name to ID
+        int? genreId;
+        if (_filters.selectedGenre.isNotEmpty) {
+          final genre = _genres.firstWhere(
+            (g) => g.name.toLowerCase() == _filters.selectedGenre.toLowerCase(),
+            orElse: () => Genre(id: 0, name: ''),
+          );
+          if (genre.id > 0) {
+            genreId = genre.id;
+          }
+        }
+        
+          _apiService
+              .searchMovies(
+                query: _searchQuery,
+                genreId: genreId,
+                minYear: _filters.minYear,
+                maxYear: _filters.maxYear,
+                minRating: _filters.minRating > 0 ? _filters.minRating : null,
+                sortBy: _filters.sortBy,
+                sortAscending: _filters.sortAscending,
+              )
+              .then((results) {
+                debugPrint('=== API RESPONSE RECEIVED ===');
+                debugPrint('Total results from API: ${results.length}');
+                debugPrint('Filter applied: minRating=${_filters.minRating}');
+                if (results.isNotEmpty) {
+                  debugPrint('Sample ratings: ${results.take(5).map((m) => m.voteAverage).toList()}');
+                }
+
+                // Apply client-side rating filter since TMDb search endpoint doesn't support vote_average.gte
+                List<Movie> filteredResults = results;
+                if (_filters.minRating > 0) {
+                  filteredResults = results
+                      .where((movie) => movie.voteAverage >= _filters.minRating)
+                      .toList();
+                  debugPrint('After client-side rating filter: ${filteredResults.length} results');
+                }
+
+                // Apply client-side title sort if needed (TMDb doesn't support server-side title sort)
+                if (_filters.sortBy == 'title') {
+                  filteredResults.sort((a, b) => a.title.compareTo(b.title));
+                  if (!_filters.sortAscending) {
+                    filteredResults = filteredResults.reversed.toList();
+                  }
+                }
+
+                _searchResults = results;
+                _filteredResults = filteredResults;
+                _isLoadingSearch = false;
+                notifyListeners();
+              })
+            .catchError((e) {
+              _error = 'Ошибка поиска: $e';
+              _isLoadingSearch = false;
+              notifyListeners();
+            });
       } else {
-        debugPrint('Жанр не найден в списке TMDb, используем fallback поиск');
-        // Fallback: ищем по названию в overview/title
-        filtered = filtered.where((movie) {
-          final overview = (movie.overview ?? '').toLowerCase();
-          final title = movie.title.toLowerCase();
-          return overview.contains(_filters.selectedGenre.toLowerCase()) ||
-              title.contains(_filters.selectedGenre.toLowerCase());
-        }).toList();
-        debugPrint('После fallback фильтра: ${filtered.length} фильмов');
+        // No active search, just update filter state
+        notifyListeners();
       }
     }
 
-    // Фильтр по рейтингу (minRating)
-    if (_filters.minRating > 0) {
-      filtered = filtered.where((movie) {
-        return movie.voteAverage >= _filters.minRating;
-      }).toList();
-      debugPrint('После фильтра по рейтингу: ${filtered.length} фильмов');
-    }
-
-    // Фильтр по году выпуска
-    if (_filters.minYear != null || _filters.maxYear != null) {
-      filtered = filtered.where((movie) {
-        if (movie.releaseDate == null || movie.releaseDate!.isEmpty) {
-          return false;
-        }
-
-        try {
-          final year = int.tryParse(movie.releaseDate!.substring(0, 4));
-          if (year == null) {
-            return false;
-          }
-
-          if (_filters.minYear != null && year < _filters.minYear!) {
-            return false;
-          }
-          if (_filters.maxYear != null && year > _filters.maxYear!) {
-            return false;
-          }
-
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }).toList();
-      debugPrint('После фильтра по году: ${filtered.length} фильмов');
-    }
-
-    // Сортировка
-    filtered.sort((a, b) {
-      int result = 0;
-
-      switch (_filters.sortBy) {
-        case 'title':
-          result = a.title.compareTo(b.title);
-          break;
-        case 'year':
-          final yearA = _extractYear(a.releaseDate);
-          final yearB = _extractYear(b.releaseDate);
-          result = yearA.compareTo(yearB);
-          break;
-        case 'rating':
-          result = a.voteAverage.compareTo(b.voteAverage);
-          break;
+    /// Сбросить фильтры
+    void resetFilters() {
+      _filters = _filters.reset();
+      _filteredResults = [];
+      
+      // Re-fetch search results with no filters if there's an active query
+      if (_searchQuery.isNotEmpty) {
+        _isLoadingSearch = true;
+        notifyListeners();
+        _apiService
+            .searchMovies(
+              query: _searchQuery,
+            )
+            .then((results) {
+              _searchResults = results;
+              _filteredResults = results;
+              _isLoadingSearch = false;
+              notifyListeners();
+            })
+            .catchError((e) {
+              _error = 'Ошибка поиска: $e';
+              _isLoadingSearch = false;
+              notifyListeners();
+            });
+      } else {
+        notifyListeners();
       }
+    }
 
-      return _filters.sortAscending ? result : -result;
-    });
+   /// Очистить поиск
+   void clearSearch() {
+     _searchResults = [];
+     _filteredResults = [];
+     _searchQuery = '';
+     _filters = _filters.reset();
+     notifyListeners();
+   }
 
-    _filteredResults = filtered;
-    debugPrint(
-        '=== ИТОГО после фильтрации: ${_filteredResults.length} фильмов ===');
-  }
-
-  /// Извлечь год из даты
-  int _extractYear(String? date) {
-    if (date == null || date.isEmpty) return 0;
-    return int.tryParse(date.substring(0, 4)) ?? 0;
-  }
-
-  /// Очистить поиск
-  void clearSearch() {
-    _searchResults = [];
-    _filteredResults = [];
-    _searchQuery = '';
-    _filters = _filters.reset();
-    notifyListeners();
-  }
-
-  /// ============================================================================
-  /// POPULAR FILMS (TMDb API)
-  /// ============================================================================
+   /// ============================================================================
+   /// POPULAR FILMS (TMDb API)
+   /// ============================================================================
   Future<void> loadPopularMovies() async {
     _isLoadingPopular = true;
     _error = null;
