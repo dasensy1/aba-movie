@@ -86,58 +86,24 @@ class _ActorDetailScreenState extends State<ActorDetailScreen> {
   }
 
   Widget _buildAppBar() {
-    final profilePath = _actorDetails?['profile_path'] as String?;
-    final backdropUrl = profilePath != null
-        ? 'https://image.tmdb.org/t/p/w1280$profilePath'
-        : null;
-
     return SliverAppBar(
       pinned: true,
-      expandedHeight: 300,
+      expandedHeight: 150,
       backgroundColor: ModernColors.backgroundDark,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
       flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (backdropUrl != null)
-              CachedNetworkImage(
-                imageUrl: backdropUrl,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _buildFallback(),
-                placeholder: (_, __) => _buildFallback(),
-              )
-            else
-              _buildFallback(),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, ModernColors.backgroundDark],
-                ),
-              ),
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF232834), Color(0xFF11151D)],
             ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildFallback() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF232834), Color(0xFF11151D)],
-        ),
-      ),
-      child: const Center(
-        child: Icon(Icons.person_outlined, color: Colors.white38, size: 80),
       ),
     );
   }
@@ -277,6 +243,9 @@ class _ActorDetailScreenState extends State<ActorDetailScreen> {
       );
     }
 
+    // Remove emojis/emoticons from biography
+    final cleanedBiography = _removeEmojis(biography);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -290,7 +259,7 @@ class _ActorDetailScreenState extends State<ActorDetailScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          biography,
+          cleanedBiography,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.82),
             fontSize: 15,
@@ -299,6 +268,25 @@ class _ActorDetailScreenState extends State<ActorDetailScreen> {
         ),
       ],
     );
+  }
+
+  String _removeEmojis(String text) {
+    // Regular expression to match emoji characters
+    final emojiRegex = RegExp(
+      r'[\u{1F300}-\u{1F9FF}]|' // Emoticons, symbols & pictographs
+      r'[\u{2600}-\u{26FF}]|'   // Miscellaneous symbols
+      r'[\u{2700}-\u{27BF}]|'   // Dingbats
+      r'[\u{1F600}-\u{1F64F}]|' // Emoticons (emoji)
+      r'[\u{1F680}-\u{1F6FF}]|' // Transport & map symbols
+      r'[\u{1F700}-\u{1F77F}]|' // Alchemical symbols
+      r'[\u{1F780}-\u{1F7FF}]|' // Geometric Shapes Extended
+      r'[\u{1F800}-\u{1F8FF}]|' // Supplemental Arrows-C
+      r'[\u{1FA00}-\u{1FA6F}]|' // Chess symbols
+      r'[\u{1FA70}-\u{1FAFF}]|' // Symbols and Pictographs Extended-A
+      r'[\u{2190}-\u{21FF}]',   // Arrows
+      unicode: true,
+    );
+    return text.replaceAll(emojiRegex, '');
   }
 
   Widget _buildFilmography() {

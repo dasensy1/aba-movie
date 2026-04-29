@@ -9,6 +9,21 @@ import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
 import '../../models/models.dart';
 
+/// Custom clipper for rendering partial/fractional stars
+class _StarClipper extends CustomClipper<Rect> {
+  final double percentage;
+  
+  const _StarClipper({required this.percentage});
+  
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTWH(0, 0, size.width * (percentage / 100), size.height);
+  }
+  
+  @override
+  bool shouldReclip(_StarClipper oldClipper) => oldClipper.percentage != percentage;
+}
+
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
 
@@ -356,42 +371,43 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                   onPressed: () => _showAddWatchDialog(movie),
                   tooltip: 'Добавить просмотр',
                 ),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.grey),
-                  onSelected: (value) => _handleMenuAction(value, movie),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'change_date',
-                      child: Row(
-                        children: [
-                          Icon(Icons.calendar_today, size: 20),
-                          SizedBox(width: 12),
-                          Text('Изменить дату'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'change_status',
-                      child: Row(
-                        children: [
-                          Icon(Icons.swap_horiz, size: 20),
-                          SizedBox(width: 12),
-                          Text('Изменить статус'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'change_rating',
-                      child: Row(
-                        children: [
-                          Icon(Icons.star_border, size: 20, color: Colors.amber),
-                          SizedBox(width: 12),
-                          Text('Оценить фильм'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'remove',
+                 PopupMenuButton<String>(
+                   icon: const Icon(Icons.more_vert, color: Colors.grey),
+                   onSelected: (value) => _handleMenuAction(value, movie),
+                   itemBuilder: (context) => [
+                     if (movie.status == WatchStatus.watched)
+                       const PopupMenuItem(
+                         value: 'change_rating',
+                         child: Row(
+                           children: [
+                             Icon(Icons.star_border, size: 20, color: Colors.amber),
+                             SizedBox(width: 12),
+                             Text('Оценить фильм'),
+                           ],
+                         ),
+                       ),
+                     const PopupMenuItem(
+                       value: 'change_date',
+                       child: Row(
+                         children: [
+                           Icon(Icons.calendar_today, size: 20),
+                           SizedBox(width: 12),
+                           Text('Изменить дату'),
+                         ],
+                       ),
+                     ),
+                     const PopupMenuItem(
+                       value: 'change_status',
+                       child: Row(
+                         children: [
+                           Icon(Icons.swap_horiz, size: 20),
+                           SizedBox(width: 12),
+                           Text('Изменить статус'),
+                         ],
+                       ),
+                     ),
+                     const PopupMenuItem(
+                       value: 'remove',
                       child: Row(
                         children: [
                           Icon(Icons.delete, size: 20, color: Colors.red),
@@ -508,7 +524,10 @@ class _WatchlistScreenState extends State<WatchlistScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Поставьте оценку', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text(
+                  'Поставьте оценку',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -522,32 +541,46 @@ class _WatchlistScreenState extends State<WatchlistScreen>
                     const Text(' / 10', style: TextStyle(fontSize: 20, color: Colors.grey)),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Slider(
-                  value: _currentValue,
-                  min: 0,
-                  max: 10,
-                  divisions: 20,
-                  activeColor: Colors.amber,
-                  inactiveColor: Colors.grey[800],
-                  onChanged: (val) {
-                    setModalState(() {
-                      _currentValue = val;
-                    });
-                  },
-                ),
+                const SizedBox(height: 8),
+                 _buildDialogStarRow(
+                   onRatingChanged: (rating) {
+                     setModalState(() {
+                       _currentValue = rating;
+                     });
+                   },
+                   currentRating: _currentValue,
+                 ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context, _currentValue),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C4DFF),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                Row(
+                  children: [
+                    Expanded(
+                       child: OutlinedButton(
+                         onPressed: () {
+                           setModalState(() {
+                             _currentValue = 0;
+                           });
+                         },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.grey),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Сбросить', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                      ),
                     ),
-                    child: const Text('Сохранить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, _currentValue),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C4DFF),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Сохранить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
               ],
@@ -560,6 +593,49 @@ class _WatchlistScreenState extends State<WatchlistScreen>
     if (newRating != null && mounted) {
       await context.read<WatchlistProvider>().updateRating(movie.movieId, newRating, auth.userId);
     }
+  }
+
+  Widget _buildDialogStarRow({required ValueChanged<double> onRatingChanged, required double currentRating}) {
+    // Convert 0-10 scale to 0-5 stars (each star = 2 points)
+    final stars = currentRating / 2;
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (index) {
+        final starValue = index + 1.0;
+        final isActive = stars >= starValue;
+        final isHalfActive = !isActive && stars > index && stars < starValue;
+        
+        return GestureDetector(
+          onTapDown: (TapDownDetails details) {
+            final tapX = details.localPosition.dx;
+            // Padding is 4px each side, icon 40px → total ~48px, half = 24
+            final isLeftHalf = tapX < 24;
+            final newRating = isLeftHalf ? (starValue - 0.5) * 2 : starValue * 2;
+            onRatingChanged(newRating);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: isHalfActive
+                ? Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      const Icon(Icons.star_border, color: Colors.amber, size: 40),
+                      ClipRect(
+                        clipper: _StarClipper(percentage: (stars - index) * 100),
+                        child: const Icon(Icons.star, color: Colors.amber, size: 40),
+                      ),
+                    ],
+                  )
+                : Icon(
+                    isActive ? Icons.star : Icons.star_border,
+                    color: Colors.amber,
+                    size: 40,
+                  ),
+          ),
+        );
+      }),
+    );
   }
 
   Future<WatchStatus?> _showStatusChangeDialog(WatchlistMovie movie) async {

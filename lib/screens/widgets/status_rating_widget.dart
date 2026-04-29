@@ -9,6 +9,21 @@ import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
 import '../../models/models.dart';
 
+/// Custom clipper for rendering partial/fractional stars
+class _StarClipper extends CustomClipper<Rect> {
+  final double percentage;
+  
+  const _StarClipper({required this.percentage});
+  
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTWH(0, 0, size.width * (percentage / 100), size.height);
+  }
+  
+  @override
+  bool shouldReclip(_StarClipper oldClipper) => oldClipper.percentage != percentage;
+}
+
 class StatusRatingWidget extends StatefulWidget {
   final int movieId;
   final WatchStatus initialStatus;
@@ -213,6 +228,8 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
   }
 
   Widget _buildRatingSection() {
+    final bool canRate = _currentStatus == WatchStatus.watched;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -227,12 +244,12 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
               child: const Icon(Icons.star, color: Colors.amber, size: 20),
             ),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'Ваша оценка',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: canRate ? Colors.white : Colors.grey,
               ),
             ),
           ],
@@ -241,57 +258,241 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
         Row(
           children: [
             Expanded(
-              child: SliderTheme(
-                data: SliderThemeData(
-                  activeTrackColor: Colors.amber,
-                  inactiveTrackColor: const Color(0xFF333333),
-                  thumbColor: Colors.amber,
-                  overlayColor: Colors.amber.withValues(alpha: 0.2),
-                  trackHeight: 6,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-                ),
-                child: Slider(
-                  value: _userRating ?? 0,
-                  min: 0,
-                  max: 10,
-                  divisions: 20,
-                  label: _userRating?.toStringAsFixed(1) ?? '—',
-                  onChanged: (value) {
-                    setState(() {
-                      _userRating = value;
-                    });
-                    final auth = context.read<AuthProvider>();
-                    context.read<WatchlistProvider>().updateRating(
-                      widget.movieId,
-                      value,
-                      auth.userId,
-                    );
-                  },
-                ),
-              ),
-            ),
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.amber, width: 2),
-              ),
-              child: Center(
-                child: Text(
-                  _userRating?.toStringAsFixed(1) ?? '—',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber,
+              child: GestureDetector(
+                onTap: canRate
+                    ? () async {
+                        final newRating = await _showStarRatingDialog();
+                        if (newRating != null && mounted) {
+                          setState(() {
+                            _userRating = newRating;
+                          });
+                          final auth = context.read<AuthProvider>();
+                          await context.read<WatchlistProvider>().updateRating(
+                            widget.movieId,
+                            newRating,
+                            auth.userId,
+                          );
+                        }
+                      }
+                    : null,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: canRate ? const Color(0xFF2A2A2A) : const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: canRate ? Colors.amber.withValues(alpha: 0.3) : const Color(0xFF333333),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildStarRow(canRate: canRate),
+                      const SizedBox(width: 12),
+                      Text(
+                        _userRating != null ? '${_userRating!.toStringAsFixed(1)} / 10' : 'Нажмите, чтобы оценить',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: canRate ? Colors.amber : Colors.grey,
+                          fontWeight: _userRating != null ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ],
         ),
+        if (!canRate) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Оценка доступна только после установки статуса "Просмотрено"',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[500],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildStarRow({required bool canRate}) {
+    final rating = _userRating ?? 0;
+    // Convert 0-10 scale to 0-5 stars (each star = 2 points)
+    final stars = rating / 2;
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final starValue = index + 1;
+        final isActive = stars >= starValue;
+        final isHalfActive = !isActive && stars > index && stars < starValue;
+        
+        return GestureDetector(
+          onTapDown: canRate
+              ? (TapDownDetails details) {
+                  final tapX = details.localPosition.dx;
+                  final isLeftHalf = tapX < 16; // 28px icon + 4px padding = 32px total, half = 16
+                  final newRating = isLeftHalf ? (starValue - 0.5) * 2 : starValue * 2.0;
+                  
+                  setState(() {
+                    _userRating = newRating;
+                  });
+                  final auth = context.read<AuthProvider>();
+                  context.read<WatchlistProvider>().updateRating(
+                    widget.movieId,
+                    newRating,
+                    auth.userId,
+                  );
+                }
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: isHalfActive
+                ? Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      const Icon(Icons.star_border, color: Colors.amber, size: 28),
+                      ClipRect(
+                        clipper: _StarClipper(percentage: (stars - index) * 100),
+                        child: const Icon(Icons.star, color: Colors.amber, size: 28),
+                      ),
+                    ],
+                  )
+                : Icon(
+                    isActive ? Icons.star : Icons.star_border,
+                    color: canRate ? Colors.amber : Colors.grey,
+                    size: 28,
+                  ),
+          ),
+        );
+      }),
+     );
+   }
+
+  Future<double?> _showStarRatingDialog() async {
+    double tempRating = _userRating ?? 0;
+    
+    return await showModalBottomSheet<double>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Поставьте оценку',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 36),
+                    const SizedBox(width: 12),
+                    Text(
+                      tempRating > 0 ? tempRating.toStringAsFixed(1) : '—',
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.amber),
+                    ),
+                    const Text(' / 10', style: TextStyle(fontSize: 20, color: Colors.grey)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildDialogStarRow(onRatingChanged: (rating) {
+                  setModalState(() {
+                    tempRating = rating;
+                  });
+                }, currentRating: tempRating),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setModalState(() {
+                            tempRating = 0;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.grey),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Сбросить', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, tempRating),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C4DFF),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Сохранить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDialogStarRow({required ValueChanged<double> onRatingChanged, required double currentRating}) {
+    // Convert 0-10 scale to 0-5 stars (each star = 2 points)
+    final stars = currentRating / 2;
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (index) {
+        final starValue = index + 1.0;
+        final isActive = stars >= starValue;
+        final isHalfActive = !isActive && stars > index && stars < starValue;
+        
+        return GestureDetector(
+          onTapDown: (TapDownDetails details) {
+            final tapX = details.localPosition.dx;
+            // Padding is 4px each side, icon 40px → total ~48px, half = 24
+            final isLeftHalf = tapX < 24;
+            final newRating = isLeftHalf ? (starValue - 0.5) * 2 : starValue * 2;
+            onRatingChanged(newRating);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: isHalfActive
+                ? Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      const Icon(Icons.star_border, color: Colors.amber, size: 40),
+                      ClipRect(
+                        clipper: _StarClipper(percentage: (stars - index) * 100),
+                        child: const Icon(Icons.star, color: Colors.amber, size: 40),
+                      ),
+                    ],
+                  )
+                : Icon(
+                    isActive ? Icons.star : Icons.star_border,
+                    color: Colors.amber,
+                    size: 40,
+                  ),
+          ),
+        );
+      }),
     );
   }
 }
@@ -455,14 +656,15 @@ class _StatusSelectionSheetState extends State<_StatusSelectionSheet> {
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _selectedStatus != null
-                      ? () => Navigator.pop(context, (_selectedStatus!, _selectedDate))
-                      : null,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                 width: double.infinity,
+                 child: ElevatedButton(
+                   onPressed: () {
+                     final statusToSave = _selectedStatus ?? widget.currentStatus;
+                     Navigator.pop(context, (statusToSave, _selectedDate));
+                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7C4DFF),
                     padding: const EdgeInsets.symmetric(vertical: 16),
