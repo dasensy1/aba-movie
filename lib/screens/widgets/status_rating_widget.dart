@@ -53,6 +53,16 @@ class _StatusRatingWidgetState extends State<StatusRatingWidget> {
     _loadRating();
   }
 
+  @override
+  void didUpdateWidget(covariant StatusRatingWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialStatus != widget.initialStatus) {
+      setState(() {
+        _currentStatus = widget.initialStatus;
+      });
+    }
+  }
+
   void _loadRating() {
     final provider = context.read<WatchlistProvider>();
     final watchlistMovie = provider.getWatchlistMovie(widget.movieId);
